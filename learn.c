@@ -7,16 +7,35 @@
 */
 
 #include <stdio.h>
-#include "h1.h"     // include the header as we use the function below
-
-int count;
-int write(void);
 
 int main(void)
 {
-    count = 10;
-    char *pointer;
-    pointer = "lala";
-    printf("%s\n", pointer);
-    return 0;
+    int a = 1;
+    int b = 7;
+
+    if (a == 5){
+        printf("a is 5\n");
+    }
+    else if (a == 10) {
+        printf("a is 10\n");
+    }
+    else {
+        printf("a is neither 5 nor 10\n");
+    }
+
+    // this will execute all case statements because no break was used
+    switch (a) {
+        case 1:
+            printf("a is 1\n");
+            a++;
+        case 2:
+            printf("a is 2\n");
+            a++;
+        case 3:
+            printf("a is 3\n");
+            a++;
+        default:
+            printf("! (1 <= a <= 3)\n");
+    }
+    printf("%d\n", a);
 }

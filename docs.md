@@ -1,6 +1,6 @@
 # The C Programming Language
 
-Continue with p.45 Decision Making
+Continue with p.58 Decision Making
 
 ## Setup
 
@@ -321,24 +321,50 @@ Operator | Description
 `*` | returns the pointer to a variable
 `? : ` | ternary condition, `if true ? then x : otherwise y`
 
-### Operator Precedence
+## Decision Making
 
-Higher precede operators appear at the top of the table and get evaluated first within an expression.
+In C, any `if` statement that evaluates to a __non-null__ or __non-zero__ value is considered true.
 
-Category | Operator
---- | ---
-Postfix | () [] -> . ++ --
-Unary | + - ! ~ ++ -- (type)* & sizeof
-Multiplicative | * / %
-Additive | + -
-Shift | << >>
-Relational | < <= > >=
-Equality | == !=
-Bitwise AND | &
-Bitwise XOR | ^
-Bitwise OR | \|
-Logical AND | &&
-Logical OR | \||
-Conditional | ?:
-Assignment | = += -= *= /= %= >>= <<= &= ^= \|=
-Comma | ,
+```c
+int a = 5;
+if (a == 5){
+    printf("a is 5\n");
+}
+else if (a == 10) {
+    printf("a is 10\n");
+}
+else {
+    printf("a is neither 5 nor 10\n");
+}
+```
+
+Of course, if statements can be nested.
+An alternative to `if`-statements is a `ternary` statement.
+
+```c
+int a = 5, b = 7, c;
+
+(a == 5) ? printf("a is 5\n") : printf("a is not 5\n");
+c = (a == 5) ? a : b;
+```
+
+Another way to test variables against a set of values is using the `switch` statement. Each value is called a `case`.
+A `break` terminates the `switch` statement. If not `break` statement appears, the next case statement will be evaluated.A `default` case can be added which will be executed when all other cases fail (or no break is used).
+
+```c
+int a = 3;
+
+switch (a) {
+    case 1:
+        printf("a is 1\n");
+        break;
+    case 2:
+        printf("a is 1\n");
+        break;
+    case 3:
+        printf("a is 1\n");
+        break;
+    default:
+        printf("! (1 <= a <= 3)\n");
+}
+```
