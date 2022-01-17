@@ -38,4 +38,18 @@ int main(void)
             printf("! (1 <= a <= 3)\n");
     }
     printf("%d\n", a);
+
+    while (a <= 10) {
+        printf("value of a: %d\n", a);
+        a++;
+    }
+
+    int i, j;
+    for (i = 2; i <= 100; i++) {
+        for (j = 2; j <= (i/j); j++) {
+            if (i % j == 0) { break; }
+        }
+        if (j > (i/j)) { printf("%d is prime\n", i); }
+    }
+    return 0;
 }

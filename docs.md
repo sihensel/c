@@ -1,10 +1,10 @@
 # The C Programming Language
 
-Continue with p.58 Decision Making
+Continue with p.85 Functions
 
 ## Setup
 
-Any file with the `.c` extension is a C-file. C files have to be compiled to run. This can be done with `cc` or `gcc`.
+Any file with the `.c` extension is a C-file and can be compiled with `cc` or `gcc`.
 ```sh
 cc -o output file.c
 cc -o output file1.c file2.c    # to compile multiple files
@@ -16,17 +16,17 @@ All variable Names in C are case sensitive, which means that `hello`, `Hello`, `
 
 ### Integer Types
 
-Type | Size | Value Range
---- | --- | ---
-char | 1 byte | -128 to 127 or 0 to 255
-unsigned char | 1 byte | 0 to 255
-signed char | 1 byte | -128 to 127
-int | 2 or 4 bytes | -32.768 to 32.767 or -2.147.483.648 to 2.147.483.647
-unsigned int | 2 or 4 bytes | 0 to 65.535 or 0 to 4.294.967.295
-short | 2 bytes | -32.768 to 32.767
-unsigned short | 2 bytes | 0 to 65.535
-long | 4 bytes | -2.147.483.648 to 2.147.483.647 
-unsigned long | 4 bytes | 0 to 4.294.967.295)
+Type | Size
+--- | ---
+char | 1 byte
+unsigned char | 1 byte
+signed char | 1 byte
+int | 2 or 4 bytes
+unsigned int | 2 or 4 bytes
+short | 2 bytes
+unsigned short | 2 bytes
+long | 4 bytes
+unsigned long | 4 bytes
 
 Integers use the `%d` placeholder in a `printf` statement and expects a base 10 number.  
 `%i` can also be used, but it autodetects the base of the value (e.g. is 012 is 12 in decimal, but 10 in octal).
@@ -37,18 +37,13 @@ printf("The value of a is %d\n", a);
 
 ### Floating Point Types
 
-Type | Size | Value Range | Precision
---- | --- | --- | ---
-float | 4 bytes | 1,2E-38 to 3,4E+38 | 6 decimal places
-double | 8 bytes | 2,3E-308 to 1,7E+308 | 15 decimal places
-long double | 10 bytes | 3,4E-4932 to 3,4E+4932 | 19 decimal places
-
+Type | Size | Precision
+--- | --- | ---
+float | 4 bytes | 6 decimal places
+double | 8 bytes | 15 decimal places
+long double | 10 bytes | 19 decimal places
 
 Floats use the `%f` placeholder in a `printf` statement.
-```c
-float b = 2.5;
-printf("value of b is %f\n", b);
-```
 
 ### void Types
 
@@ -69,21 +64,27 @@ void | Represents the absence of a type
 
 ## Variable declaration and definition
 
-Declaration: tells the compiler that tere is a variable but no memory gets allocated for it
-Definition: memory gets allocated for the variable, can only be done once
-Initialization: A variable gets a value assigned to it
+There are three stages in variable and function declaration.
+
+Name | Description
+--- | ---
+Declaration | Tells the compiler that tere is a variable but no memory gets allocated for it
+Definition | Memory gets allocated for the variable, can only be done once
+Initialization | A variable gets a value assigned to it
 
 A vairable also gets declared during its definition (if it has no been declared yet)
 ```c
 int add(int, int);  // declares the function, no memory allocation
 
 // this defines the function, memory gets allocated
-int add(int a, int b) {
+int add(int a, int b)
+{
     return (a + b);
 }
 ```
 
 The following example works, since `var` is implicitely defined (and thus declared) globally.
+
 ```c
 int var;    // this is a definition and allocates memory
 
@@ -93,7 +94,9 @@ int main(void)
     printf("the value of var is: %d\n", var);
 }
 ```
+
 When using the `extern` keyword, a variable gets declared but not defined. The following code throws an error, since `var` is not known to the compiler.
+
 ```c
 extern int var;    // this is only a declaration, no memory allocation
 
@@ -105,28 +108,21 @@ int main(void)
 }
 ```
 
-Variable can be declared with a `type variable_name` construct. A variable has to be declared once so a value can be assigned to it.
-
+Variable can be declared with the `type variable_name` construct. A variable has to be declared once so a value can be assigned to it.
+This can also be done in one step.
 
 ```c
-int a, b, c;
+int a = 3, b, c;
 char c, ch;
-float f, temperature;
-```
-
-You also can also be initialized with a value in their declaration.
-
-```c
-int a = 5, b = 7;
-float temperature = 20.0;
+float f, temperature = 23.2;
 ```
 
 ### Lvalues and Rvalues
 
-- lvalues refer to a memory location and may appear on both sides of an assignment
-- all variables are lvalues
-- rvalues refer to a data value that is stored at some address in memory
-- rvalues cannot have values assigned to them, so they can only appear on the right-hand side of an assignment
+- Lvalues refer to a memory location and may appear on both sides of an assignment
+- all variables are Lvalues
+- Rvalues refer to a data value that is stored at some address in memory
+- Rvalues cannot have values assigned to them, so they can only appear on the right-hand side of an assignment
 
 ### Using Header files
 
@@ -160,12 +156,13 @@ int main(void)
 ```
 
 ## Constants
+
 Constants, also called literals cannot be altered during the execution.
 
 ### Integer Literals
 Integer literals can be a `decimal`, `octal` or `hexdecimal` value and can be distinguished by their prefix (`0x` or `0X` for `hexdecimal`, `0` for `octal`, no prefix for `decimal`). In addition, a literal can also have the suffix `L` for `long` and `U` for `unsigned`. They can be uppercase or lowercase and in any order.  
 
-Example | Meaning
+Example | Description
 --- | ---
 `212l` | long decimal
 `0273` | octal
@@ -175,10 +172,10 @@ Example | Meaning
 ### Floating Point Literals
 A floating-point literal has an integer part, a fractional part and an exponent part (signed by `e` or `E`).
 
-Example | Meaning
+Example | Description
 --- | ---
 `3.14159` | floating point value
-`314159E-5L` | using an exponent with of type long
+`314159E-5L` | using an exponent of type long
 
 ### Character Literals
 Character literals are enclosed in single quotes. These can be a plain character (`'x'`), an escape sequence (`'\n'`) or a universal character (`'\u02C0'`).
@@ -186,6 +183,7 @@ Character literals are enclosed in single quotes. These can be a plain character
 ### String Literals
 String literals are enclosed in double quotes and can contain plain characters, escape sequence or universal characters. Strings can be broken up by string literal and whitespaces.
 These are all the same string:
+
 ```c
 "Hello, World"
 "Hello, \
@@ -195,6 +193,7 @@ World"
 
 Constants can be defined using the `#define` preprocessor or the `const` keyword. Literals are written in uppercase out of convention, not necessity.
 `const` allows type checking, while `#define` can be used to save space and compile time, as it gets processed by the preprocessor.
+
 ```c
 /* general schema:
 #define variable value;
@@ -225,22 +224,25 @@ Macros get defined with a `#` and get processed by the preprocessor at compile t
 `#include "header.h"` imports headers from the current directory  
 `#undef` undefines a macro  
 `#define` macros can take arguments, but have no type checking. In general it is better to use functions instead.
+
 ```c
 #define MULTIPLY (a, b) a * b
 MULTIPLY(2 + 3, 3 + 5)  // 2 + 3 * 3 + 5 -> 16
 #define MULTIPLY (a, b) (a) * (b)
 MULTIPLY(2 + 3, 3 + 5)  // (2 + 3) * (3 + 5) -> 40
 ```
+
 The preprocessor also supports `#if` - `#endif` constructs
 
 ## Storage Classes
+
 A storage class defines the scope and lifetime of variables or functions and precede the type that they modify. There are four storage classes.
 - `auto`
 - `register`
 - `static`
 - `extern`
 
-`auto` is the default for all local variables.  
+`auto` is the default for all local variables.
 ```c
 {
     auto int month;
@@ -273,7 +275,7 @@ extern int func(int);
 ## Operators
 
 ### Binary Operators
-Binary operators operate on the binary bits of a number, e.g.  
+Binary operators operate on the binary bits of a number, e.g.
 ```ini
 A = 110011
 B = 101101
@@ -311,7 +313,6 @@ Operator | Description
 `^=` | `a ^= 5` is the same as `a = a ^ 5`
 `|=` | `a |= 5` is the same as `a = a | 5`
 
-
 ### Misc Operators
 
 Operator | Description
@@ -327,7 +328,7 @@ In C, any `if` statement that evaluates to a __non-null__ or __non-zero__ value 
 
 ```c
 int a = 5;
-if (a == 5){
+if (a == 5) {
     printf("a is 5\n");
 }
 else if (a == 10) {
@@ -368,3 +369,54 @@ switch (a) {
         printf("! (1 <= a <= 3)\n");
 }
 ```
+
+## Loops
+
+```c
+int a = 5;
+
+while (a <= 10) {
+    printf("value of a: %d\n", a);
+    a++;
+}
+
+for (int i = 0; i < 5; i++) {
+    printf("current index: %d\n", i);
+}
+
+// this also works
+// the init step is not necessary, just make sure to write the semicolon
+int i = 0;
+for (; i < 5; i += 2) {
+    printf("current index: %d\n", i);
+}
+
+int b = 10
+
+do {
+    printf("value of b: %d\n", b);
+    b += 3;
+} while (b < 20);
+
+// of course, loops can be nested
+int i, j;
+for (i = 2; i <= 100; i++) {
+    for (j = 2; j <= (i/j); j++) {
+        if (i % j == 0) { break; }
+    }
+    if (j > (i/j)) { printf("%d is prime\n", i); }
+}
+
+// this creates an infinite loop
+for (;;) {
+    // code
+}
+```
+
+The flow of a loop can be influenced by control statements
+
+Control statement | Description
+--- | ---
+`break` | terminates the current loop and continue with the subsequent code
+`continue` | skip the remainder of the loop body and start the next iteration
+`goto` | continue at the labeled statement (bad practice, don't use)
