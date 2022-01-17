@@ -1,12 +1,11 @@
 # The C Programming Language
 
-Continue with p.58 Decision Making
+Continue with p.85 Functions
 
 ## Setup
 
 Any file with the `.c` extension is a C-file. C files have to be compiled to run. This can be done with `cc` or `gcc`.
-```sh
-cc -o output file.c
+```sh cc -o output file.c
 cc -o output file1.c file2.c    # to compile multiple files
 ```
 
@@ -368,3 +367,54 @@ switch (a) {
         printf("! (1 <= a <= 3)\n");
 }
 ```
+
+## Loops
+
+```c
+int a = 5;
+
+while (a <= 10) {
+    printf("value of a: %d\n", a);
+    a++;
+}
+
+for (int i = 0; i < 5; i++) {
+    printf("current index: %d\n", i);
+}
+
+// this also works
+// the init step is not necessary, just make sure to write the semicolon
+int i = 0;
+for (; i < 5; i += 2) {
+    printf("current index: %d\n", i);
+}
+
+int b = 10
+
+do {
+    printf("value of b: %d\n", b);
+    b += 3;
+} while (b < 20);
+
+// of course, loops can be nested
+int i, j;
+for (i = 2; i <= 100; i++) {
+    for (j = 2; j <= (i/j); j++) {
+        if (i % j == 0) { break; }
+    }
+    if (j > (i/j)) { printf("%d is prime\n", i); }
+}
+
+// this creates an infinite loop
+for (;;) {
+    // code
+}
+```
+
+The flow of a loop can be influenced by control statements
+
+Control statement | Description
+--- | ---
+`break` | terminates the current loop and continue with the subsequent code
+`continue` | skip the remainder of the loop body and start the next iteration
+`goto` | continue at the labeled statement (bad practice, don't use)
