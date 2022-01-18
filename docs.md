@@ -43,7 +43,7 @@ float | 4 bytes | 6 decimal places
 double | 8 bytes | 15 decimal places
 long double | 10 bytes | 19 decimal places
 
-Floats use the `%f` placeholder in a `printf` statement.
+Floats use the `%f` placeholder in a `printf` statement. Use `%.2f` to state the amount of digits after the comma (this will round the value).
 
 ### void Types
 
@@ -321,6 +321,14 @@ Operator | Description
 `&` | returns the memory address of a variable
 `*` | returns the pointer to a variable
 `? : ` | ternary condition, `if true ? then x : otherwise y`
+`++` | increase the value by one
+`--` | decrease the value by one
+
+```c
+int a = 10, x;
+x = a++;    // x = 10, as a gets incremented AFTER the expression
+x = ++a     // x = 11, as a gets incremented BEFORE the expression
+```
 
 ## Decision Making
 
