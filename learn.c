@@ -1,5 +1,3 @@
-// continue with chapter 8
-
 // this is a comment
 /*
    this is a block comment
@@ -51,5 +49,18 @@ int main(void)
         }
         if (j > (i/j)) { printf("%d is prime\n", i); }
     }
+
+    //int table[2][3];    // This creates a "table" or matrix with 2 rows and 3 columns
+
+    int table[2][3] = {
+        {0, 1, 2},
+        {3, 4, 5},
+    };
+    int matrix[2][3] = {0, 1, 2, 3, 4, 5};
+    double prices[5] = {0, 1, 2, 3, 4};
+    int arr_size = sizeof prices / sizeof *prices;
+
+    printf("size:\t%d\n", arr_size);
+
     return 0;
 }

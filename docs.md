@@ -428,3 +428,79 @@ Control statement | Description
 `break` | terminates the current loop and continue with the subsequent code
 `continue` | skip the remainder of the loop body and start the next iteration
 `goto` | continue at the labeled statement (bad practice, don't use)
+
+## Arrays
+
+Arrays are a collection of variables of the same type. All arrays use contiguous memory addresses, with the lowest address being the first element and the highest being the last.  
+A single-dimensional array gets defined with an integer constant that indicates the size of the array.
+
+```c
+double temperatures[10];
+int grades[5] = {3, 1, 5, 2, 3};
+```
+
+Multidimensional Arrays get defined by specifying multiple sizes.
+
+```c
+int table[2][3];    // This creates a "table" or matrix with 2 rows and 3 columns
+
+int table[2][3] = {
+    {0, 1, 2},
+    {3, 4, 5},
+};
+// Is the same as
+int table[2][3] = {0, 1, 2, 3, 4, 5};
+```
+
+C does not provide and direct builtin way to determine the size (or length) of an array. Instead, there are two simple ways to get the length.
+
+```c
+// Method 1: save the size upfront
+const int ARR_SIZE = 5;
+double prices[ARR_SIZE];
+
+// Method 2: using sizeof()
+// Since all elements of an array are of the same type,
+// we can use the size of the whole array and divide it by th size of the first element
+double prices[5] = {0, 1, 2, 3, 4};
+int arr_size = sizeof prices / sizeof prices[0];
+int arr_size = sizeof prices / sizeof *prices;    // or use the pointer
+```
+
+Arrays can be passed to functions in three different ways:
+```c
+void func(int arr[10]) { }
+void func(int arr[]) { }
+void func(int *arr) { }
+```
+
+By default, a function cannot return an array. But it can return a pointer instead.
+
+```c
+int *func(void)
+{
+    static int arr[5] = {0, 1, 2, 3, 4};      // the array has to be static, since we return the address of a local variable
+    return arr;
+}
+
+int main(void)
+{
+    int *prices;
+    prices = func();
+}
+```
+
+A pointer of an array always points to the __first__ element.
+
+```c
+double prices[10];
+double *p;
+p = prices;     // Here, p holds the value of the first element of prices
+
+// also, these are the same
+prices[4]
+*(prices + 4)
+
+// this means, once we store the first element of prices in p, we can access the other elements using
+(*p + 3)
+```
