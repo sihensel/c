@@ -1,6 +1,6 @@
 # The C Programming Language
 
-Continue with p.85 Functions
+Continue with p.128 Structures
 
 ## Setup
 
@@ -43,7 +43,7 @@ float | 4 bytes | 6 decimal places
 double | 8 bytes | 15 decimal places
 long double | 10 bytes | 19 decimal places
 
-Floats use the `%f` placeholder in a `printf` statement. Use `%.2f` to state the amount of digits after the comma (this will round the value).
+Floats use the `%f` placeholder in a `printf` statement.
 
 ### void Types
 
@@ -154,6 +154,24 @@ int main(void)
     return 0;
 }
 ```
+
+## Specifiers
+
+The most common specifiers are as follows.
+
+Specifier | Explanation
+--- | ---
+%c | a character (char)
+%d | a string
+%d | a decimal integer
+%o | a octal integer
+%x | a hexdecimal integer
+%f | a float
+%e | a floating point number in scientific notation
+%E | same as %e
+%p | an address (or pointer)
+%06d | specifies the width (456 becomes 000456)
+%.2f | float with two decimals (rounded)
 
 ## Constants
 
@@ -504,3 +522,44 @@ prices[4]
 // this means, once we store the first element of prices in p, we can access the other elements using
 (*p + 3)
 ```
+
+## Pointers
+
+In C you can get the memory address of a variable by prefixing it with the ampersand &.
+
+```c
+int var = 10;
+printf("Memory address of var: %p\n", &var);
+```
+
+A pointer can be specified with an asterisk *. It holds the memory address of another variable. Use the pointer itself to gain the memory address and use `*pointer` to get the value at the location of that address.  
+It is good practice to assign a `NULL` value to a pointer at the time of variable declaration in case to memory address can be assigned. A pointer with the value NULL is calles a null pointer.
+
+```c
+int var = 10;
+int *pointer = NULL;
+
+pointer = &var;
+printf("Address of pointer: %p\n", pointer);
+printf("Value of pointer and var: %d, %d\n", *pointer, var);
+```
+
+You can check if a pointer is not NULL with `if (pointer)`.
+There are four arithmetic operators that can be used on pointer: +, - , ++, --. ++ and -- move the pointer to the next or previous memory address respectively.
+A pointer can also point to another pointer.
+Pointers can be passed to functions which allows changing values outside of the function.
+A function can also return a pointer, which can point to local variables.
+
+## Strings
+
+Strings are one-dimensional arrays of characters terminated by a null character `\0`. A string should be treated as read-only.
+String support the following functions, which can be included with `#include <string.h>`.
+
+Function | Action
+--- | ---
+strcpy(s1, s2) | copies s2 into s1
+strcat(s1, s2) | concatenates s2 onto the end of s1
+strlen(s1) | returns the length of string s1
+strcmp(s1, s2) | returns 0 is s1 == s2, less than 0 if s1<s2 and greater than 0 if s1>s2
+strchr(s1, ch) | returns a pointer to the first occurence of ch in s1
+strstr(s1, s2) | returns a pointer to the first occurence of s2 in s1

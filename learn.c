@@ -5,6 +5,7 @@
 */
 
 #include <stdio.h>
+#include <string.h>
 
 int main(void)
 {
@@ -61,6 +62,13 @@ int main(void)
     int arr_size = sizeof prices / sizeof *prices;
 
     printf("size:\t%d\n", arr_size);
+
+    int var = 10;
+    int *pointer = NULL;
+
+    pointer = &var;
+    printf("Address of pointer: %p\n", pointer);
+    printf("Value of pointer and var: %d, %d\n", *pointer, var);
 
     return 0;
 }
