@@ -1,6 +1,6 @@
 # The C Programming Language
 
-Continue with p.128 Structures
+Continue with p.152 File I/O
 
 ## Setup
 
@@ -563,3 +563,131 @@ strlen(s1) | returns the length of string s1
 strcmp(s1, s2) | returns 0 is s1 == s2, less than 0 if s1<s2 and greater than 0 if s1>s2
 strchr(s1, ch) | returns a pointer to the first occurence of ch in s1
 strstr(s1, s2) | returns a pointer to the first occurence of s2 in s1
+
+## Structures
+
+Structures allow to store several data items of different kinds, where arrays allow only one data type.
+
+```c
+struct Books {
+    char title[50];
+    char author[50];
+    int book_id;
+} book;
+
+int main(void) {
+    strcpy(book.title, "Moby Dick");
+    strcpy(book.author, "Herman Melville");
+    book.book_id = 123456;
+
+    printf("Book title:\t%s\n", book.title);
+    printf("Book author:\t%s\n", book.author);
+    printf("Book ID:\t%d\n", book.book_id);
+
+    return 0;
+}
+```
+
+Of course, there can also be pointers of structures. To access struct elements via a pointer, use `->`.
+
+```c
+struct Books {
+    char title[50];
+    char author[50];
+    int book_id;
+} book;
+
+struct Books *book_pointer;
+book_pointer = &book;
+
+printf("Book title:\t%s\n", book_pointer->title);
+printf("Book author:\t%s\n", book_pointer->author);
+printf("Book ID:\t%d\n", book_pointer->book_id);
+```
+
+Structs allow the packing of data via bit fields. This only works if the integer word length is less than or equal to the minimum machine word length. This is especially usefull when struct elements are used as booleans.
+
+```c
+struct package {
+    unsigned int f1:1;     // bit field of length 1
+    unsigned int f2:4;     // bit field of length 4
+} pack;
+```
+
+## Union
+
+Unions allow to store different data types in the same memory location. A union can have many members, but only one member can contain a value at any given time. This allows the efficient reuse of memory addresses. Unions have the size of its largest member.
+
+```c
+union Data {
+    int i;
+    char str[20];   // this union will have a size of 20 bytes
+} data;
+```
+
+Union members can be accessed the same way as structs.
+
+```c
+union Data {
+    int i;
+    char str[20];   // this union will have a size of 20 bytes
+} data;
+
+data.i = 10;
+strcpy(data.str, "Hello World");
+
+printf("data.i\t%d\n", data.i);     // this value will be currupted because we overwrote it with the string
+printf("data.str\t%s\n", data.str);
+```
+
+## Typedef
+
+Typedef can be used to give a type a new name. Uppercase letters are used for typdefs by convention. This is especially useful with structs and unions.
+
+```c
+typedef unsigned int INT;
+
+typedef struct Person {
+    char fname[20];
+    char lname[20];
+} person;
+
+INT var = 5;
+person p1;
+strcpy(p1.fname, "Peter");
+strcpy(p1.lname, "Griffin");
+```
+
+## Input and Output
+
+The `int getchar(void)` function reads the next available character from the screen and returns it as an integer.
+The `int putchar(int)` function puts the passed character on the screen and also returns it.
+
+```c
+int c;
+printf("Enter a value: ");
+c = getchar();
+printf("\nYou entered: ");
+putchar(c);
+```
+
+The `char *fgets(char *string, int length, FILE *stream)` function reads a line from STDIN into the buffer pointed to by `s` until LF or EOF occur. This is the safer alternative to `gets()` as it stops reading once the buffer size is reached. Use subsequent calls to `fgets()` to read the remaining input.
+The `int puts(const char *s)` function writes the string `s` and a newline to STDOUT, provided the string is null-terminated.
+
+```c
+char str[10];
+printf("Enter a value: ");
+fgets(str, 10, stdin);
+printf("\nYou entered: ");
+puts(str);
+```
+
+`scanf(const char *format)` reads input from STDIN and scans the input according to the provided format.
+`printf(const char *format)` printf writes to STDOUT according to the format provided.
+
+```c
+int age;
+char name[20];
+scanf("%s %d", name, &age);
+printf("%s is %d years old.\n", name, age);
+```

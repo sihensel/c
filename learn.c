@@ -51,9 +51,7 @@ int main(void)
         if (j > (i/j)) { printf("%d is prime\n", i); }
     }
 
-    //int table[2][3];    // This creates a "table" or matrix with 2 rows and 3 columns
-
-    int table[2][3] = {
+    int table[2][3] = {     // This creates a "table" or matrix with 2 rows and 3 columns
         {0, 1, 2},
         {3, 4, 5},
     };
@@ -69,6 +67,38 @@ int main(void)
     pointer = &var;
     printf("Address of pointer: %p\n", pointer);
     printf("Value of pointer and var: %d, %d\n", *pointer, var);
+
+    typedef struct Books {
+        char title[50];
+        char author[50];
+        int book_id;
+    } book;
+
+    book moby_dick;
+    strcpy(moby_dick.title, "Moby Dick");
+    strcpy(moby_dick.author, "Herman Melville");
+    moby_dick.book_id = 123456;
+
+    printf("Book title:\t%s\n", moby_dick.title);
+    printf("Book author:\t%s\n", moby_dick.author);
+    printf("Book ID:\t%d\n", moby_dick.book_id);
+    struct Books *book_pointer;
+    book_pointer = &moby_dick;
+
+    printf("Book title:\t%s\n", book_pointer->title);
+    printf("Book author:\t%s\n", book_pointer->author);
+    printf("Book ID:\t%d\n", book_pointer->book_id);
+
+    char str[10];
+    printf("Enter a value: ");
+    fgets(str, 10, stdin);
+    printf("\nYou entered: ");
+    puts(str);
+
+    int age;
+    char name[20];
+    scanf("%s %d", name, &age);
+    printf("%s is %d years old.\n", name, age);
 
     return 0;
 }
