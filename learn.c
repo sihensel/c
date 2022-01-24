@@ -6,8 +6,37 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <stdarg.h>
 
-int main(void)
+extern int errno;
+
+int factorial(unsigned int i)
+{
+    if (i <= 1) {
+        return 1;
+    }
+    else {
+        return i * factorial(i - 1);
+    }
+}
+
+double avg(int num, ...)      // the first parameter is always an int and representats the number of parameters
+{
+    va_list valist;         // variable list type
+    double sum = 0.0;
+    
+    va_start(valist, num);  // initialize the variable list
+    for (int i = 0; i < num; i++) {
+        sum += va_arg(valist, int);
+    }
+    va_end(valist);         // clean up memory
+    
+    return sum/num;
+}
+
+int main(int argc, char *argv[])
 {
     int a = 1;
     int b = 7;
@@ -89,16 +118,69 @@ int main(void)
     printf("Book author:\t%s\n", book_pointer->author);
     printf("Book ID:\t%d\n", book_pointer->book_id);
 
-    char str[10];
-    printf("Enter a value: ");
-    fgets(str, 10, stdin);
-    printf("\nYou entered: ");
-    puts(str);
+    //char str[10];
+    //printf("Enter a value: ");
+    //fgets(str, 10, stdin);
+    //printf("\nYou entered: ");
+    //puts(str);
 
     int age;
-    char name[20];
-    scanf("%s %d", name, &age);
+    char name[20] = "Walter";
+
+    printf("Please enter %s's age:\t", name);
+    scanf("%d", &age);
     printf("%s is %d years old.\n", name, age);
 
-    return 0;
+    FILE *fp;
+    fp = fopen("test.txt", "w");
+    fprintf(fp, "This is written using fprintf %d\n", age);
+    fputs("This is written using fputs \n", fp);
+
+    fclose(fp);
+
+    const int SIZE = 200;
+    char buff[SIZE];
+    fp = fopen("test.txt", "r");
+    fgets(buff, SIZE, fp);
+    printf("%s", buff);
+    fgets(buff, SIZE, (FILE*)fp);
+    printf("%s", buff);
+    fclose(fp);
+
+    fp = fopen("does_not_exist.txt", "r");
+
+    if (fp == NULL) {
+        fprintf(stderr, "Errno:\t%d\n", errno);
+        perror("Error printed by perror");
+        fprintf(stderr, "Error opening file: %s\n", strerror(errno));
+    }
+    else {
+        fclose(fp);
+    }
+
+    printf("factorial of 5:\t%d\n", factorial(5));
+    printf("%lf\n", avg(3, 10, 15, 23));
+
+    char lala[100];
+    char *descr;
+
+    strcpy(lala, "Peter Griffin");
+    descr = malloc(200 * sizeof(char));
+
+    if (descr == NULL) {
+        fprintf(stderr, "Error allocating memory\n");
+    }
+    else {
+        strcpy(descr, "Today is a very nice day");
+    }
+    printf("%s\n", lala);
+    printf("%s\n", descr);
+
+    free(descr);
+
+    for (int i = 0; i < argc; i++) {
+        printf("%s\n", argv[i]);
+    }
+
+    return EXIT_SUCCESS;
 }

@@ -691,3 +691,251 @@ char name[20];
 scanf("%s %d", name, &age);
 printf("%s is %d years old.\n", name, age);
 ```
+
+## File I/O
+
+In C, files can be opened or created with the `FILE *fopen(const char *filename, const char *mode)` function.
+`filename` is a string literal and the access mode can have one of the following values.
+
+Mode | Description
+--- | ---
+r | reading
+w | writing from the beginning of the file, creates the file if it does not exists
+a | append mode, creates the file if it does not exist
+r+ | both reading and writing
+w+ | both reading and writing, truncates the file to zero length first
+a+ | read from the beginning and write in append mode
+
+To handle binary files, attach the `b` suffix to any of the above modes, e.g. `rb` or `w+b` or `wb+`.
+
+To close a file, use the `int fclose(FILE *fp)` function. It returns zero on success or EOF if there is an error.
+
+To write to a file, there is the `int fputc(int c, FILE *fp)` function, which writes one character to the stream and returns the written character or EOF on error. Alternatively, there is the `int fputs(const char *s, FILE *fp)` function that writes a string to a file and returns any non-negative value on success or EOF. At last, there is the `int fprintf(FILE *fp, const char *format, ...)` function.
+
+```c
+FILE *file;
+file = fopen("test.txt", "w");
+fprintf(file, "This is written using fprintf %d\n", age);
+fputs("This is written using fputs \n", file);
+fclose(file);
+```
+
+You can read from a file with the `fgetc(FILE *fp)` function, which reads and returns a single character.
+`fgets(char *buf, int n, FILE *fp)` reads upt to n-1 characters from the input stream and appends a null character to terminate the string. It stops once it encounters a newline character. This time, instead of STDIN, we use the filestream as the input.
+`fscanf(FILE *fp, const char *format)` works the same, but stops at the first space character.
+
+```c
+char buff[200];
+fp = fopen("test.txt", "r");
+fgets(buff, 200, fp);
+printf("%s", buff);
+fclose(fp);
+```
+
+There are also binary I/O functions, that are not covered here.
+
+## Preprocessors
+
+Preprocessors are not part of the compiler, but a seperate step in the compilation process. It performs text substitution and instructs the compiler to do preprocessing. All preprocessor commands begin with the hash symbol `#`.
+
+Directive | Description
+--- | ---
+`#define` | Substitutes a preprocessor macro
+`#include` | Inserts a header from another file
+`#undef` | Undefines a macro
+`#ifdef` | Returns true if a macro is defined
+`#ifndef` | Returns true if a macro is not defined
+`#if` | Tests if a compile time condition is true
+`#else` | The alternative for `#if`
+`#elif` | Elseif
+`#endif` | Ends the preprocessor conditional
+`#error` | Prints an error message to STDERR
+`#pragma` | Issues special commands to the compiler
+
+```c
+#define MAX_ARRAY_LENGTH 20     // replace instances of MAX_ARRAY_LENGTH with 20, used as a constant
+#include <stdio.h>              // include a header file
+
+#undef FILE_SIZE                // undefines FILE_SIZE
+#define FILE_SIZE 500           // and sets it to 500
+
+#ifndef MESSAGE
+    #define MESSAGE "Hello World"   // define MESSAGE if it is not defined
+#endif
+
+#ifdef DEBUG
+    // some debugging statements, useful when passing the -DDEBUG flag to gcc
+#endif
+```
+
+There are some reserved macros in C.
+
+Macro | Description
+--- | ---
+`__DATE__` | Current Date as a charachter literal in "MMM DD YYYY"
+`__TIME__` | Current time in "HH:MM:SS"
+`__FILE__` | Current file name as a string literal
+`__LINE__` | Current line as a decimal constant
+`__STDC__` | Defined as 1 when using the ANSI standard
+
+There are special preprocessor operators that can help create macros.
+
+Use `\` when a macro would be too long for one line.
+`#` within a macro converts a parameter to a string.
+
+```c
+#define MESSAGE(a, b) \
+    printf("My name is " #a " " #b".\n")
+
+int main(void)
+{
+    MESSAGE(Peter, Griffin);
+    return 0;
+}
+```
+
+The `defined` operator is used to determine if an identifier is defined with `#define`.
+
+```c
+#if !defined (MESSAGE)
+    #define MESSAGE "Hello World"
+#endif
+```
+
+## Header files
+
+Header files have the `.h` extension and contain all constants, macros, global variables and function prototypes for a program. This header file is the included where needed, which is equal to copying the code into your `.c` file.
+If a header file is included twice, the compiler will also process its content twice, leading to errors. To prevent this, it is good practice to wrap the entire content of the header file in a conditional.
+
+```c
+#ifndef HEADER_FILE
+#define HEADER_FILE
+
+// header file code
+
+#endif
+```
+
+## Type casting
+
+Variables types can be converted to different types, either implicitely of explicitely.
+
+```c
+int sum = 20, count = 4;
+double avg;
+
+avg = (double) sum / count;     // here, sum gets converted BEFORE the expression
+```
+
+## Error handling
+
+C in itself does not provide erro handling, but makes use of return values.
+The `perror()` function displays the string that is passed to it, and the textual representation of the `errno` value.
+`strerror()` returns a pointer to the textual representation of the `errno`.
+
+```c
+#include <stdio.h>
+#include <errno.h>
+#include <stdlib.h>
+
+extern int errno;
+
+int main(void)
+{
+    FILE *fp;
+    fp = fopen("does_not_exist.txt", "r");
+
+    if (fp == NULL) {
+        fprintf(stderr, "Errno:\t%d\n", errno);
+        perror("Error printed by perror");
+        fprintf(stderr, "Error opening file: %s\n", strerror(errno));
+    }
+    else {
+        fclose(fp);
+    }
+    return EXIT_SUCCESS;    // from stdlib.h
+}
+```
+
+## Recursion
+
+C allows for recursive function calls, i.e. a function calling itself.
+
+```c
+int factorial(unsigned int i)
+{
+    if (i <= 1) {
+        return 1;
+    }
+    else {
+        return i * factorial(i - 1);
+    }
+}
+```
+
+## Variable arguments
+
+Sometimes a function needs to accept a non-deterministic amount of parameters instead of a set amount. This is done with ellipses and the `stdarg.h` header.
+
+```c
+#include <stdarg.h>     // necessary
+
+double avg(int num, ...)      // the first parameter is always an int and representats the number of parameters
+{
+    va_list valist;         // variable list type
+    double sum = 0.0;
+    
+    va_start(valist, num);  // initialize the variable list
+    for (int i = 0; i < num; i++) {
+        sum += va_arg(valist, int);
+    }
+    va_end(valist);         // clean up memory
+    
+    return sum/num;
+}
+```
+
+## Memory Management
+
+C allows for dynamic memory management with function defined in `stdlib.h`.
+
+Function | Description
+--- | ---
+`void *calloc(int num, int size)` | Allocates an array of `num` elements with `size` bytes
+`void free(void *address)` | Release a memory block specified by `address`
+`void *malloc(int num)` | Allocates an array of `num` bytes and leaves it initialized
+`void *realloc(void *address, int newsize)` | Reallocates memory, extending it to `newsize`
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+
+char name[100];
+char *descr;
+
+strcpy(name, "Peter Griffin");
+descr = malloc(200 * sizeof(char));
+
+if (descr == NULL) {
+    fprintf(stderr, "Error allocating memory\n");
+}
+else {
+    strcpy(descr, "Today is a very nice day");
+}
+descr = realloc(descr, 400 * sizeof(char));
+printf("%s\n", descr);
+free(descr);
+```
+
+## Command Line Arguments
+
+Command line arguments can be passed to a C program and are handled with the main function. `argv[0]` always holds the program name. So if no argument will be passed, `argc == 1`. Arguments are seperated by a space, arguments that contain a space have to be wrapped in quotes.
+
+```c
+int main(int argc, char *argv[])
+{
+    for (int i = 0; i < argc; i++) {
+        printf("%s\n", argv[i]);
+    }
+}
+```
