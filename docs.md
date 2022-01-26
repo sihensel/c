@@ -274,7 +274,7 @@ A storage class defines the scope and lifetime of variables or functions and pre
 }
 ```
 
-`static` keeps a local variable in existence during the lifetime of the program instead of destroying and recreating it each time it comes into and goes out of scope. This way, they retain their value between function calls. Declaring `static` on global variables causes them to be resitricted to the file they are declared in.
+`static` keeps a local variable in existence during the lifetime of the program instead of destroying and recreating it each time it comes into and goes out of scope. This way, they retain their value between function calls. Declaring `static` on global variables or functions causes them to be resitricted to the file they are declared in.
 ```c
 int increase_counter(void)
 {
@@ -605,13 +605,41 @@ printf("Book author:\t%s\n", book_pointer->author);
 printf("Book ID:\t%d\n", book_pointer->book_id);
 ```
 
-Structs allow the packing of data via bit fields. This only works if the integer word length is less than or equal to the minimum machine word length. This is especially usefull when struct elements are used as booleans.
+Structs allow the packing of data via bit fields. This only works if the integer word length is less than or equal to the minimum machine word length. This is especially useful when struct elements are used as booleans.
 
 ```c
 struct package {
     unsigned int f1:1;     // bit field of length 1
     unsigned int f2:4;     // bit field of length 4
 } pack;
+```
+
+## Enums
+
+Enumerated types, also called `enums`, consist of integral constants. Notice how a comma is used to seperate entries, whereas a `struct` uses semicolons. The first value of an `enum` is 0, then 1 and so on. Default values can be declared, which causes the following constant to be that value + 1 and so on.  
+Enum variables can only take one value, which makes it useful for flags.  
+They can also be used in `switch` or `for` statements.
+
+```c
+enum flags {
+    CONST1,         // default value 0
+    CONST2 = 9,     // value 9
+    CONST3          // default value 10
+};
+
+int flag = CONST3;  // flag = 10
+```
+
+It can be practical to give enums values of the power of 2, e.g. to replicate Linux file permissions. This allows using multiple constants with the bitwise OR `|` operator for one value, as their binary values don't conflict.
+
+```c
+enum filemodes {
+    READ = 4,       // 0100
+    WRITE = 2,      // 0010
+    EXECUTE = 1     // 0001
+} mode;
+
+int usr_perm = READ | EXECUTE;  // usr_perm = 5
 ```
 
 ## Union

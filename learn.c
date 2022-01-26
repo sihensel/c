@@ -1,5 +1,4 @@
 // this is a comment
-/*
    this is a block comment
    compile a program with (g)cc -o <NAME> file.c
 */
@@ -118,12 +117,6 @@ int main(int argc, char *argv[])
     printf("Book author:\t%s\n", book_pointer->author);
     printf("Book ID:\t%d\n", book_pointer->book_id);
 
-    //char str[10];
-    //printf("Enter a value: ");
-    //fgets(str, 10, stdin);
-    //printf("\nYou entered: ");
-    //puts(str);
-
     int age;
     char name[20] = "Walter";
 
@@ -161,10 +154,10 @@ int main(int argc, char *argv[])
     printf("factorial of 5:\t%d\n", factorial(5));
     printf("%lf\n", avg(3, 10, 15, 23));
 
-    char lala[100];
+    char str[100];
     char *descr;
 
-    strcpy(lala, "Peter Griffin");
+    strcpy(str, "Peter Griffin");
     descr = malloc(200 * sizeof(char));
 
     if (descr == NULL) {
@@ -173,7 +166,7 @@ int main(int argc, char *argv[])
     else {
         strcpy(descr, "Today is a very nice day");
     }
-    printf("%s\n", lala);
+    printf("%s\n", str);
     printf("%s\n", descr);
 
     free(descr);
