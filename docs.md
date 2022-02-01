@@ -1,7 +1,5 @@
 # The C Programming Language
 
-Continue with p.152 File I/O
-
 ## Setup
 
 Any file with the `.c` extension is a C-file and can be compiled with `cc` or `gcc`.
