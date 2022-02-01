@@ -569,13 +569,14 @@ strstr(s1, s2) | returns a pointer to the first occurence of s2 in s1
 Structures allow to store several data items of different kinds, where arrays allow only one data type.
 
 ```c
-struct Books {
+struct Books {          // 'Books' is the struct tag
     char title[50];
     char author[50];
     int book_id;
-} book;
+} book;                 // struct variable
 
 int main(void) {
+    struct Books b1;    // use struct keyword to define additional variables
     strcpy(book.title, "Moby Dick");
     strcpy(book.author, "Herman Melville");
     book.book_id = 123456;
@@ -653,7 +654,7 @@ union Data {
 } data;
 ```
 
-Union members can be accessed the same way as structs.
+Union members can be accessed the same way as structs with `.` and `->` for pointers.
 
 ```c
 union Data {
@@ -675,15 +676,17 @@ Typedef can be used to give a type a new name. Uppercase letters are used for ty
 ```c
 typedef unsigned int INT;
 
-typedef struct Person {
+typedef struct Person {     // struct tag
     char fname[20];
     char lname[20];
-} person;
+} person;                   // new type
 
 INT var = 5;
 person p1;
 strcpy(p1.fname, "Peter");
 strcpy(p1.lname, "Griffin");
+
+person p2 = {"John", "Doe"};    // declaration
 ```
 
 ## Input and Output

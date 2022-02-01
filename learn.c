@@ -1,4 +1,5 @@
 // this is a comment
+/*
    this is a block comment
    compile a program with (g)cc -o <NAME> file.c
 */
