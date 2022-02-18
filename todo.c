@@ -5,13 +5,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
+#include <errno.h>
 
 #define STR_MAX 100
 #define PATH_MAX 256
 
-void add_task(char *, char *);
+void add_task(char *);
 int show_tasks(char *);
 void complete_task(char *);
+
+extern int errno;
 
 int main(int argc, char *argv[])
 {
@@ -27,10 +31,7 @@ int main(int argc, char *argv[])
     }
     else {
         if (strcmp(argv[1], "add") == 0) {
-            char name[STR_MAX];
-            printf("Enter the task name:\n");
-            fgets(name, STR_MAX, stdin);
-            add_task(filename, name);
+            add_task(filename);
         }
         else if (strcmp(argv[1], "list") == 0) {
             show_tasks(filename);
@@ -45,49 +46,63 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void add_task(char *filename, char *task_name)
+
+void add_task(char *filename)
 {
-    FILE *fp;
-    unsigned int len = 0;   // len of task_name
+    char input[STR_MAX];
+    char name[STR_MAX];
+    long due = 0;
+    FILE *fp = NULL;
+    const char* DELI = " +";
+    char *token = NULL;
 
-    // maybe remove this struct later
-    struct {
-        char name[STR_MAX];
-        unsigned int due;   // due day, Unix timestring? is int big enough?
-    } task;
-
-    strcpy(task.name, task_name);
-    task.due = 0;
-
-    len = strlen(task.name);
+    printf("Enter the task name:\n");
+    fgets(input, STR_MAX, stdin);
 
     // null-terminate newline strings, as produced by fgets()
-    if (task.name[len - 1] == '\n')
-        task.name[len - 1] = '\0';
+    if (input[strlen(input) - 1] == '\n')
+        input[strlen(input) - 1] = '\0';
+
+
+    if (strstr(input, " +")) {
+        token = strtok(input, DELI);
+        strcpy(name, token);
+
+        while (token != NULL) {
+            token = strtok(NULL, "\0");
+            due = strtol(token, NULL, 10);
+            due = time(NULL) + due * 86400;     // 86400 = 1 day in seconds
+            break;
+        }
+    }
+    else {
+        strcpy(name, input);
+    }
 
     fp = fopen(filename, "a");
     if (fp == NULL) {
-        printf("Could not open %s\n", filename);
+        printf("Error opening file: %s\n", strerror(errno));
         return;
     }
 
-    fprintf(fp, "%s\t%d\n", task.name, task.due);
+    fprintf(fp, "%s\t%ld\n", name, due);
     fclose(fp);
     return;
 }
 
 int show_tasks(char *filename)
 {
-    FILE *fp;
+    FILE *fp = NULL;
     char *line = NULL;
     size_t len = 0;
     char *token = NULL;
-    unsigned int max_tok_len = 0;
+    int max_tok_len = 0;
     const char *DELI = "\t";
+    double due = 0;
 
     fp = fopen(filename, "r");
     if (fp == NULL) {
-        printf("Could not open %s\n", filename);
+        printf("Error opening file: %s\n", strerror(errno));
         return 0;
     }
 
@@ -95,13 +110,17 @@ int show_tasks(char *filename)
     // FIXME is there a better solution to this?
     while (getline(&line, &len, fp) != -1) {
         token = strtok(line, DELI);
-        if (strlen(token) > max_tok_len)
+
+        if (strlen(token) > max_tok_len) {
             max_tok_len = strlen(token);
+        }
     }
+    fclose(fp);
+
     // output headers
     printf("INDEX\t%-*s\tDUE\n", max_tok_len, "TASK");
 
-    // read the file a second time to render it to the user
+    // read the file a second time and print to stdout
     fp = fopen(filename, "r");
     int counter = 0;
     while (getline(&line, &len, fp) != -1) {
@@ -111,7 +130,20 @@ int show_tasks(char *filename)
         // parse all tokens in a line, separated by DELI
         while (token != NULL) {
             if (strchr(token, '\n')) {
-                printf("%s", token);
+                due = strtol(token, NULL, 10);
+                if (due > 0) {
+                    due -= time(NULL);
+                    if (due > 0) {
+                        due /= 86400;
+                        printf("%.0lfd\n", due);
+                    }
+                    else {
+                        printf("-\n");
+                    }
+                }
+                else {
+                    printf("-\n");
+                }
             }
             else {
                 printf("%-*s\t", max_tok_len, token);
@@ -126,21 +158,23 @@ int show_tasks(char *filename)
     return counter;
 }
 
+
 void complete_task(char *filename)
 {
-    unsigned int index = 0;
-    unsigned int no_of_tasks = 0;
+    int index = 0;
+    int task_count = 0;
 
-    no_of_tasks = show_tasks(filename);
+    task_count = show_tasks(filename);
 
-    if (no_of_tasks == 0) {
+    if (task_count == 0) {
         return;
     }
 
+    // FIXME get input via argv[]
     printf("\nSpecify the index of the task to complete:\n");
     scanf("%d", &index);
 
-    if (index < 1 || index > no_of_tasks) {
+    if (index < 1 || index > task_count) {
         printf("Invalid input (please specify a valid index).\n");
         return;
     }
@@ -158,7 +192,7 @@ void complete_task(char *filename)
         fp = fopen(filename, "r");
         fp_tmp = fopen(tmpfile, "w");
         if (fp == NULL || fp_tmp == NULL) {
-            printf("Could not open file %s or %s\n", filename, tmpfile);
+            printf("Error opening file: %s\n", strerror(errno));
             return;
         }
 
@@ -171,8 +205,9 @@ void complete_task(char *filename)
                 counter ++;
 
                 // skip the line that should be removed
-                if (counter != index)
+                if (counter != index) {
                     fprintf(fp_tmp, "%s", str);
+                }
             }
         }
         fclose(fp);
