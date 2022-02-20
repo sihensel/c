@@ -1,29 +1,21 @@
 /*
    ToDo CLI program, similar to Taskwarrior
 
-   TODO add support for time quantities (d, s, w, y)
-   TODO resolve all FIXME
-   TODO refactor code and add proper comments
+   TODO add support for time quantities with argv (d, s, w, y)
 */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
 #include <errno.h>
+#include <stddef.h>
 
-#define STR_MAX 100
-#define PATH_MAX 256
-
-void add_task(char *filename, char *name, char *days);
-int show_tasks(char *filename, int do_print);
-void complete_task(char *filename, char *index_str);
-
-extern int errno;
+#include "todo.h"
 
 int main(int argc, char *argv[])
 {
-    // FIXME make this configurable
     char filename[PATH_MAX];
     // concatenate $HOME and "/.todo" into filename
     strcat(strcpy(filename, getenv("HOME")), "/.todo");
@@ -47,13 +39,12 @@ int main(int argc, char *argv[])
 void add_task(char *filename, char *name, char *days)
 {
     FILE *fp = NULL;
-    const char* DELI = " +";
-    char *token = NULL;
     long due = 0;
 
+    // strtol returns zero when the input is not convertable
     due = strtol(days, NULL, 10);
     if (due > 0)
-        due = time(NULL) + due * 86400;
+        due = time(NULL) + due * 86400;     // 1d = 86400 seconds
 
     fp = fopen(filename, "a");
     if (fp == NULL) {
@@ -65,6 +56,7 @@ void add_task(char *filename, char *name, char *days)
     return;
 }
 
+
 int show_tasks(char *filename, int do_print)
 {
     FILE *fp = NULL;
@@ -73,7 +65,6 @@ int show_tasks(char *filename, int do_print)
     char *token = NULL;
     int max_tok_len = 0;
     const char *DELI = "\t";
-    double due = 0;
 
     fp = fopen(filename, "r");
     if (fp == NULL) {
@@ -81,54 +72,54 @@ int show_tasks(char *filename, int do_print)
         return 0;
     }
 
-    // read the file the first time to determine the longest task name
-    // FIXME is there a better solution to this?
+    // read the file once to determine the longest task name
     while (getline(&line, &len, fp) != -1) {
         token = strtok(line, DELI);
 
-        if (strlen(token) > max_tok_len) {
+        if (strlen(token) > (size_t) max_tok_len) {
             max_tok_len = strlen(token);
         }
     }
     fclose(fp);
 
-    // output headers
-    if (do_print)
-        printf("INDEX\t%-*s\tDUE\n", max_tok_len, "TASK");
-
-    // read the file a second time and print to stdout
-    fp = fopen(filename, "r");
+    char out_buff[8192];
+    char *target = out_buff;
+    double due = 0;
     int counter = 0;
+
+    // header
+    target += sprintf(target, "INDEX\t%-*s\tDUE\n", max_tok_len, "TASK");
+
+    // read the file a second time
+    // collect all outputs in out_buff using sprintf
+    fp = fopen(filename, "r");
     while (getline(&line, &len, fp) != -1) {
         token = strtok(line, DELI);
-        if (do_print)
-            printf("%d\t", counter + 1);
+        target += sprintf(target, "%d\t", counter + 1);
 
         // parse all tokens in a line, separated by DELI
         while (token != NULL) {
+
+            // since due is the last item in a row, we can recognize it by '\n'
             if (strchr(token, '\n')) {
                 due = strtol(token, NULL, 10);
                 if (due > 0) {
                     due -= time(NULL);
                     if (due > 0) {
                         due /= 86400;
-                        // FIXME this is ugly
-                        if (do_print)
-                            printf("%.0lfd\n", due);
+                        target += sprintf(target, "%.0lfd\n", due);
                     }
                     else {
-                        if (do_print)
-                            printf("-\n");
+                        target += sprintf(target, "-\n");
                     }
                 }
                 else {
-                    if (do_print)
-                        printf("-\n");
+                    target += sprintf(target, "-\n");
                 }
             }
+            // if we don't have '\n' it must be the task name
             else {
-                if (do_print)
-                    printf("%-*s\t", max_tok_len, token);
+                target += sprintf(target, "%-*s\t", max_tok_len, token);
             }
             token = strtok(NULL, DELI);
         }
@@ -136,6 +127,9 @@ int show_tasks(char *filename, int do_print)
     }
     fclose(fp);
     free(line);
+
+    if (do_print)
+        printf("%s", out_buff);
 
     return counter;
 }
@@ -145,15 +139,10 @@ void complete_task(char *filename, char *index_str)
 {
     int index = 0;
     int task_count = 0;
-    printf("COMPLETE TASK\n");
 
     task_count = show_tasks(filename, 0);
-
-    if (task_count == 0) {
+    if (task_count == 0)
         return;
-    }
-
-    // FIXME get input via argv[]
 
     index = strtol(index_str, NULL, 10);
     if (index < 1 || index > task_count) {
@@ -161,31 +150,29 @@ void complete_task(char *filename, char *index_str)
         return;
     }
     else {
-        // FIXME writing to a tempfile for now
-        // can be replaced by loading the whole file into the buffer
-        char tmpfile[PATH_MAX];
         FILE *fp = NULL;
         FILE *fp_tmp = NULL;
+        char tempfile[PATH_MAX];
         char str[STR_MAX];
-        int counter= 0;
+        int counter = 0;
 
-        strcat(strcpy(tmpfile, getenv("HOME")), "/.todo_TMP");
+        // generate the temp filename (~/.todo_TMP)
+        strcat(strcpy(tempfile, getenv("HOME")), "/.todo_TMP");
 
         fp = fopen(filename, "r");
-        fp_tmp = fopen(tmpfile, "w");
+        fp_tmp = fopen(tempfile, "w");
         if (fp == NULL || fp_tmp == NULL) {
             printf("Error opening file: %s\n", strerror(errno));
             return;
         }
 
-        // read the original file
-        while (!feof(fp)) {
+        // read the original file and write to the tempfile
+        while (feof(fp) == 0) {
             strcpy(str, "\0");
             fgets(str, STR_MAX, fp);
 
-            if (!feof(fp)) {
+            if (feof(fp) == 0) {
                 counter ++;
-
                 // skip the line that should be removed
                 if (counter != index) {
                     fprintf(fp_tmp, "%s", str);
@@ -196,8 +183,9 @@ void complete_task(char *filename, char *index_str)
         fclose(fp_tmp);
 
         remove(filename);
-        rename(tmpfile, filename);
+        rename(tempfile, filename);
     }
+    show_tasks(filename, 1);
     return;
 }
 
