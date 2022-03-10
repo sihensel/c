@@ -1,0 +1,28 @@
+{
+    "backlog": [
+        {
+            "name": "Allow user to add tasks",
+            "due": "12.12.2022"
+        },
+        {
+            "name": "Implement Help menu",
+            "due": "12.12.2022"
+        },
+        {
+            "name": "Handle SIGWINCH signal",
+            "due": "12.12.2022"
+        }
+    ],
+    "progress": [
+        {
+            "name": "Implement JSON handling",
+            "due": "12.12.2022"
+        }
+    ],
+    "done": [
+        {
+            "name": "Draw screen",
+            "due": "12.12.2022"
+        }
+    ]
+}
