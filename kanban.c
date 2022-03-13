@@ -1,5 +1,5 @@
 /*
-   WIP
+   Ncurses kanban board that saves its tasks in a json file
    Also testing ncurses
    requires the json-c library ('json-c' package on Arch Linux)
    compile with gcc -lncurses -ljson-c -std=c99 kanban.c
@@ -16,14 +16,23 @@
 #define COLOR_BACKLOG  1
 #define COLOR_PROGRESS 2
 #define COLOR_DONE     3
+// FIXME set buffer size to a reasonable amount
+#define BUFF_SIZE 8192
+#define FILENAME "ncurses.json"
 
+// TODO write dedicated header file
 void set_up(void);
 void tear_down(void);
 void add_task(void);
 void add_card(struct json_object *task, int index, int column);
 void resize_handler(int sig);
 void read_json_file(void);
+void write_json_file(void);
+void parse_json(void);
+
 extern int errno;
+static char buffer[BUFF_SIZE];  // buffer for the json file
+static int y, x;                // size of the terminal
 
 int main(void)
 {
@@ -54,8 +63,10 @@ void set_up(void)
     initscr();
     curs_set(0);    // hide the cursor
     noecho();
+    keypad(stdscr, TRUE);
+    raw();
 
-    int y, x = getmaxyx(stdscr, y, x);
+    getmaxyx(stdscr, y, x);
     refresh();
 
     if (x < 100) {
@@ -66,13 +77,13 @@ void set_up(void)
 
     // newwin(rows, cols, y-origin, x-origin)
     WINDOW *w_backlog_top = newwin(5, x/3, 0, 0);
-    WINDOW *w_backlog_main = newwin(y-6, x/3, 5, 0);
+    WINDOW *w_backlog_main = newwin(y-7, x/3, 5, 0);
 
     WINDOW *w_progress_top = newwin(5, x/3, 0, x/3);
-    WINDOW *w_progress_main = newwin(y-6, x/3, 5, x/3);
+    WINDOW *w_progress_main = newwin(y-7, x/3, 5, x/3);
 
     WINDOW *w_done_top = newwin(5, x/3, 0, x/3*2);
-    WINDOW *w_done_main = newwin(y-6, x/3, 5, x/3*2);
+    WINDOW *w_done_main = newwin(y-7, x/3, 5, x/3*2);
 
     box(w_backlog_top, 0, 0);
     box(w_backlog_main, 0, 0);
@@ -110,6 +121,7 @@ void set_up(void)
         }
     }
     else {
+        // print text without colors
         mvwprintw(w_backlog_top, getmaxy(w_backlog_top)/2,
                 getmaxx(w_backlog_top)/2 - strlen("Backlog")/2, "Backlog");
 
@@ -120,8 +132,8 @@ void set_up(void)
                 getmaxx(w_backlog_top)/2 - strlen("Done")/2, "Done");
     }
 
-    mvaddstr(y-1, 1, "(a)dd task");
-    mvaddstr(y-1, x/2, "(q)uit");
+    mvaddstr(y-2, 1, "(a)dd task");
+    mvaddstr(y-2, x/2, "(q)uit");
 
     wrefresh(w_backlog_top);
     wrefresh(w_backlog_main);
@@ -130,8 +142,12 @@ void set_up(void)
     wrefresh(w_done_top);
     wrefresh(w_done_main);
     refresh();
-    read_json_file();
 
+    // only read the file once, exclusively operate on the buffer afterwards
+    if (buffer[0] == '\0')
+        read_json_file();
+    if (buffer[0] != '\0')
+        parse_json();
     return;
 }
 
@@ -148,8 +164,6 @@ void add_task(void) {
     echo();
     char task_name[51];
     char task_due[11];      // a date string has 11 chars, including '\n'
-    int y, x = getmaxyx(stdscr, y, x);
-    refresh();
 
     WINDOW *w_input = newwin(y/2, x/2, y/4, x/4);
     box(w_input, 0, 0);
@@ -159,17 +173,34 @@ void add_task(void) {
     mvwaddstr(w_input, 3, 1, "Please enter a due date (DD.MM.YYYY or 0 for none): ");
     mvwgetnstr(w_input, 4, 1, task_due, 10);
 
-    mvwaddstr(w_input, 6, 1, task_name);
-    mvwaddstr(w_input, 7, 1, task_due);
-    wrefresh(w_input);
+    // we just assume that new tasks get added to the backlog first
+    // and then moved manually to the progress column
+    struct json_object *parsed_json;
+    struct json_object *backlog;
 
-    //add_card(task_name, task_due);
-    // TODO write to file
+    // if the buffer is empty here, the json file is also empty
+    if (buffer[0] == '\0') {
+        parsed_json = json_object_new_object();
+        backlog = json_object_new_array();
+    }
+    else {
+        parsed_json = json_tokener_parse(buffer);
+        json_object_object_get_ex(parsed_json, "backlog", &backlog);
+    }
+    struct json_object *new_task = json_object_new_object();
+    json_object_object_add(new_task, "name", json_object_new_string(task_name));
+    json_object_object_add(new_task, "due", json_object_new_string(task_due));
 
-    wborder(w_input, ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ');
-    werase(w_input);
-    wrefresh(w_input);
-    delwin(w_input);
+    json_object_array_add(backlog, new_task);
+    if (buffer[0] == '\0') {
+        json_object_object_add(parsed_json, "backlog", backlog);
+        json_object_object_add(parsed_json, "progress", json_object_new_array());
+        json_object_object_add(parsed_json, "done", json_object_new_array());
+    }
+    // update the buffer
+    strcpy(buffer, json_object_to_json_string_ext(parsed_json, JSON_C_TO_STRING_PRETTY));
+    write_json_file();
+
     set_up();
     noecho();
     return;
@@ -177,11 +208,6 @@ void add_task(void) {
 
 void add_card(struct json_object *task, int index, int column)
 {
-    // we just assume that new tasks get added to the backlog first
-    // and then moved manually to the progress column
-    int x = getmaxx(stdscr);
-    refresh();
-
     WINDOW *card;
     struct json_object *name;
     struct json_object *due;
@@ -199,7 +225,7 @@ void add_card(struct json_object *task, int index, int column)
             card = newwin(5, x/3-2, 6+5*index, x/3*2+1);
             break;
         default:
-            // FIXME change this beheaviour
+            // this case should not occur
             break;
     }
 
@@ -229,23 +255,25 @@ void resize_handler(int sig)
 void read_json_file(void)
 {
     FILE *fp;
-    // FIXME set buffer size to a reasonable amount
-    char buffer[1024];                  // memory buffer for the file
+    fp = fopen(FILENAME, "r");
+    if (fp == NULL) {
+        // FIXME suppress the error message when the file does not exist
+        // use access() from unistd.h or stat() from sys/stat.h
+        mvprintw(y-1, 1, "Error opening file: %s\n", strerror(errno));
+        return;
+    }
+    fread(buffer, BUFF_SIZE, 1, fp);
+    fclose(fp);
+    return;
+}
+
+void parse_json(void)
+{
     struct json_object *parsed_json;    // holds the parsed json
     struct json_object *backlog;
     struct json_object *progress;
     struct json_object *done;
-
     int n_backlog, n_progress, n_done;
-    int y = getmaxy(stdscr);
-
-    fp = fopen("ncurses.json", "r");
-    if (fp == NULL) {
-        mvprintw(y-1, 1, "Error opening file: %s\n", strerror(errno));
-        return;
-    }
-    fread(buffer, 1024, 1, fp);
-    fclose(fp);
 
     parsed_json = json_tokener_parse(buffer);
     json_object_object_get_ex(parsed_json, "backlog", &backlog);
@@ -267,6 +295,19 @@ void read_json_file(void)
     for (int i=0; i<n_done; i++) {
         add_card(json_object_array_get_idx(done, i), i, 3);
     }
+    return;
+}
+
+void write_json_file(void)
+{
+    FILE *fp;
+    fp = fopen(FILENAME, "w");
+    if (fp == NULL) {
+        mvprintw(y-1, 1, "Error opening file: %s\n", strerror(errno));
+        return;
+    }
+    fputs(buffer, fp);
+    fclose(fp);
     return;
 }
 
