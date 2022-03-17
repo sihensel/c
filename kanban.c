@@ -5,13 +5,13 @@
    compile with gcc -lncurses -ljson-c -std=c99 kanban.c
 */
 
+#include <inttypes.h>
 #include <ncurses.h>
 #include <string.h>
 #include <signal.h>
 #include <stdio.h>
 #include <errno.h>
 #include <json-c/json.h>
-
 // define color pairs to make reusing them easier
 #define COLOR_BACKLOG  1
 #define COLOR_PROGRESS 2
@@ -24,15 +24,28 @@
 void set_up(void);
 void tear_down(void);
 void add_task(void);
-void add_card(struct json_object *task, int index, int column);
+WINDOW *add_card(struct json_object *task, int index, int column);
 void resize_handler(int sig);
 void read_json_file(void);
 void write_json_file(void);
 void parse_json(void);
+void move_cursor(char direction);
+void highlight_new_card(WINDOW *new_card);
+void highlight_current_card(void);
 
 extern int errno;
 static char buffer[BUFF_SIZE];  // buffer for the json file
 static int y, x;                // size of the terminal
+static WINDOW *w_list_backlog[100];
+static WINDOW *w_list_progress[100];
+static WINDOW *w_list_done[100];
+struct cursor_position {
+    int col;
+    int row;
+} cursor_pos;
+static int n_backlog;
+static int n_progress;
+static int n_done;
 
 int main(void)
 {
@@ -44,15 +57,23 @@ int main(void)
     char input = 0;
     for (;;) {
         input = getch();
-        if (input == 'a' || input == 'A') {
+        if (input == 'a') {
             add_task();
         }
-        else if (input == 'h' || input == 'H') {
+        // FIXME set a matching key for the help menu
+        else if (input == 's') {
             // TODO add help menu
+            continue;
         }
-        else if (input == 'q' || input == 'Q') {
+        else if (input == 'j' || input == 'k' || input == 'h' || input == 'l') {
+            move_cursor(input);
+        }
+        else if (input == 'q') {
             tear_down();
-            return 0;
+            break;
+        }
+        else {
+            continue;
         }
     }
     return 0;
@@ -132,8 +153,7 @@ void set_up(void)
                 getmaxx(w_backlog_top)/2 - strlen("Done")/2, "Done");
     }
 
-    mvaddstr(y-2, 1, "(a)dd task");
-    mvaddstr(y-2, x/2, "(q)uit");
+    mvaddstr(y-2, 1, "(a) add task | (j) down | (k) up | (h) left | (l) right | (q)uit");
 
     wrefresh(w_backlog_top);
     wrefresh(w_backlog_main);
@@ -148,6 +168,15 @@ void set_up(void)
         read_json_file();
     if (buffer[0] != '\0')
         parse_json();
+
+    static int first_run = 1;
+    // highlight the first card
+    if (first_run) {
+        cursor_pos.row = 0;
+        cursor_pos.col = 0;
+        first_run = 0;
+    }
+    highlight_current_card();
     return;
 }
 
@@ -161,6 +190,7 @@ void tear_down(void)
 }
 
 void add_task(void) {
+    // FIXME allow cancelling of creating a new task with CTRL-C or similar
     echo();
     char task_name[51];
     char task_due[11];      // a date string has 11 chars, including '\n'
@@ -206,9 +236,9 @@ void add_task(void) {
     return;
 }
 
-void add_card(struct json_object *task, int index, int column)
+WINDOW *add_card(struct json_object *task, int index, int column)
 {
-    WINDOW *card;
+    static WINDOW *card;
     struct json_object *name;
     struct json_object *due;
     json_object_object_get_ex(task, "name", &name);
@@ -225,7 +255,6 @@ void add_card(struct json_object *task, int index, int column)
             card = newwin(5, x/3-2, 6+5*index, x/3*2+1);
             break;
         default:
-            // this case should not occur
             break;
     }
 
@@ -243,7 +272,7 @@ void add_card(struct json_object *task, int index, int column)
 
     wrefresh(card);
     refresh();
-    return;
+    return card;
 }
 
 void resize_handler(int sig)
@@ -273,7 +302,6 @@ void parse_json(void)
     struct json_object *backlog;
     struct json_object *progress;
     struct json_object *done;
-    int n_backlog, n_progress, n_done;
 
     parsed_json = json_tokener_parse(buffer);
     json_object_object_get_ex(parsed_json, "backlog", &backlog);
@@ -285,15 +313,15 @@ void parse_json(void)
     n_done = json_object_array_length(done);
 
     for (int i=0; i<n_backlog; i++) {
-        add_card(json_object_array_get_idx(backlog, i), i, 1);
+        w_list_backlog[i] = add_card(json_object_array_get_idx(backlog, i), i, 1);
     }
 
     for (int i=0; i<n_progress; i++) {
-        add_card(json_object_array_get_idx(progress, i), i, 2);
+        w_list_progress[i] = add_card(json_object_array_get_idx(progress, i), i, 2);
     }
 
     for (int i=0; i<n_done; i++) {
-        add_card(json_object_array_get_idx(done, i), i, 3);
+        w_list_done[i] = add_card(json_object_array_get_idx(done, i), i, 3);
     }
     return;
 }
@@ -308,6 +336,150 @@ void write_json_file(void)
     }
     fputs(buffer, fp);
     fclose(fp);
+    return;
+}
+
+void move_cursor(char input)
+{
+    // FIXME this function seems overly repetetive,
+    // maybe there is a cleaner way of doing this
+    switch (input) {
+        case 'j':
+            switch (cursor_pos.col) {
+                case 0:
+                    if (cursor_pos.row < n_backlog - 1) {
+                        highlight_new_card(w_list_backlog[cursor_pos.row + 1]);
+                        cursor_pos.row += 1;
+                    }
+                    break;
+                case 1:
+                    if (cursor_pos.row < n_progress - 1) {
+                        highlight_new_card(w_list_progress[cursor_pos.row + 1]);
+                        cursor_pos.row += 1;
+                    }
+                    break;
+                case 2:
+                    if (cursor_pos.row < n_done - 1) {
+                        highlight_new_card(w_list_done[cursor_pos.row + 1]);
+                        cursor_pos.row += 1;
+                    }
+                    break;
+            }
+            break;
+        case 'k':
+            switch (cursor_pos.col) {
+                case 0:
+                    if (cursor_pos.row > 0) {
+                        highlight_new_card(w_list_backlog[cursor_pos.row - 1]);
+                        cursor_pos.row -= 1;
+                    }
+                    break;
+                case 1:
+                    if (cursor_pos.row > 0) {
+                        highlight_new_card(w_list_progress[cursor_pos.row - 1]);
+                        cursor_pos.row -= 1;
+                    }
+                    break;
+                case 2:
+                    if (cursor_pos.row > 0) {
+                        highlight_new_card(w_list_done[cursor_pos.row - 1]);
+                        cursor_pos.row -= 1;
+                    }
+                    break;
+            }
+            break;
+        case 'h':
+            switch (cursor_pos.col) {
+                case 1:
+                    if (cursor_pos.row < n_backlog) {
+                        highlight_new_card(w_list_backlog[cursor_pos.row]);
+                        cursor_pos.col -= 1;
+                    }
+                    else {
+                        highlight_new_card(w_list_backlog[n_backlog - 1]);
+                        cursor_pos.col -= 1;
+                        cursor_pos.row = n_backlog - 1;
+                    }
+                    break;
+                case 2:
+                    if (cursor_pos.row < n_progress) {
+                        highlight_new_card(w_list_progress[cursor_pos.row]);
+                        cursor_pos.col -= 1;
+                    }
+                    else {
+                        highlight_new_card(w_list_progress[n_progress - 1]);
+                        cursor_pos.col -= 1;
+                        cursor_pos.row = n_progress - 1;
+                    }
+                    break;
+            }
+            break;
+        case 'l':
+            switch (cursor_pos.col) {
+                case 0:
+                    if (cursor_pos.row < n_progress) {
+                        highlight_new_card(w_list_progress[cursor_pos.row]);
+                        cursor_pos.col += 1;
+                    }
+                    else {
+                        highlight_new_card(w_list_progress[n_progress - 1]);
+                        cursor_pos.col += 1;
+                        cursor_pos.row = n_progress - 1;
+                    }
+                    break;
+                case 1:
+                    if (cursor_pos.row < n_done) {
+                        highlight_new_card(w_list_done[cursor_pos.row]);
+                        cursor_pos.col += 1;
+                    }
+                    else {
+                        highlight_new_card(w_list_done[n_done - 1]);
+                        cursor_pos.col += 1;
+                        cursor_pos.row = n_done - 1;
+                    }
+                    break;
+            }
+            break;
+    }
+}
+
+void highlight_current_card(void)
+{
+    WINDOW *current_card;
+    switch (cursor_pos.col) {
+        case 0:
+            current_card = w_list_backlog[cursor_pos.row];
+            break;
+        case 1:
+            current_card = w_list_progress[cursor_pos.row];
+            break;
+        case 2:
+            current_card = w_list_done[cursor_pos.row];
+            break;
+    }
+    wborder(current_card, '|', '|', '-', '-', '+', '+', '+', '+');
+    wrefresh(current_card);
+    return;
+}
+
+void highlight_new_card(WINDOW *new_card)
+{
+    WINDOW *old_card;
+    switch (cursor_pos.col) {
+        case 0:
+            old_card = w_list_backlog[cursor_pos.row];
+            break;
+        case 1:
+            old_card = w_list_progress[cursor_pos.row];
+            break;
+        case 2:
+            old_card = w_list_done[cursor_pos.row];
+            break;
+    }
+    box(old_card, 0, 0);
+    wborder(new_card, '|', '|', '-', '-', '+', '+', '+', '+');
+    wrefresh(old_card);
+    wrefresh(new_card);
     return;
 }
 
