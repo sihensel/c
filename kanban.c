@@ -1,8 +1,7 @@
 /*
    Ncurses kanban board that saves its tasks in a json file
-   Also testing ncurses
    requires the json-c library ('json-c' package on Arch Linux)
-   compile with gcc -lncurses -ljson-c -std=c99 kanban.c
+   gcc -Wall -Wextra -lncurses -ljson-c -std=c99 -o kanban kanban.c
 */
 
 #include <inttypes.h>
@@ -19,6 +18,7 @@
 // FIXME set buffer size to a reasonable amount
 #define BUFF_SIZE 8192
 #define FILENAME "ncurses.json"
+#define W_ARR_LENGTH 20
 
 // TODO write dedicated header file
 void set_up(void);
@@ -32,13 +32,15 @@ void parse_json(void);
 void move_cursor(char direction);
 void highlight_new_card(WINDOW *new_card);
 void highlight_current_card(void);
+void delete_task(void);
+void move_task(char input);
 
 extern int errno;
 static char buffer[BUFF_SIZE];  // buffer for the json file
 static int y, x;                // size of the terminal
-static WINDOW *w_list_backlog[100];
-static WINDOW *w_list_progress[100];
-static WINDOW *w_list_done[100];
+static WINDOW *w_arr_backlog[W_ARR_LENGTH];
+static WINDOW *w_arr_progress[W_ARR_LENGTH];
+static WINDOW *w_arr_done[W_ARR_LENGTH];
 struct cursor_position {
     int col;
     int row;
@@ -57,8 +59,19 @@ int main(void)
     char input = 0;
     for (;;) {
         input = getch();
+        // convert uppercase chars to lowercase
+        if (input >= 65 && input <= 90) {
+            input += 32;
+        }
+
         if (input == 'a') {
             add_task();
+        }
+        else if (input == 'd') {
+            delete_task();
+        }
+        else if (input == 'm' || input == 'n') {
+            move_task(input);
         }
         // FIXME set a matching key for the help menu
         else if (input == 's') {
@@ -153,7 +166,8 @@ void set_up(void)
                 getmaxx(w_backlog_top)/2 - strlen("Done")/2, "Done");
     }
 
-    mvaddstr(y-2, 1, "(a) add task | (j) down | (k) up | (h) left | (l) right | (q)uit");
+    mvaddstr(y-2, 1, "(a) add task | (j) down | (k) up | (h) left | (l) right | "
+            "(d) delete task | (q)uit");
 
     wrefresh(w_backlog_top);
     wrefresh(w_backlog_main);
@@ -278,6 +292,8 @@ WINDOW *add_card(struct json_object *task, int index, int column)
 void resize_handler(int sig)
 {
     // FIXME implement screen redrawing upon window resize
+    if (sig == SIGWINCH)
+        return;
     return;
 }
 
@@ -286,9 +302,10 @@ void read_json_file(void)
     FILE *fp;
     fp = fopen(FILENAME, "r");
     if (fp == NULL) {
-        // FIXME suppress the error message when the file does not exist
-        // use access() from unistd.h or stat() from sys/stat.h
-        mvprintw(y-1, 1, "Error opening file: %s\n", strerror(errno));
+        if (errno != 2) {
+            // suppress file not found error, as the file will be created
+            mvprintw(y-1, 1, "Error opening file: %d %s\n", errno, strerror(errno));
+        }
         return;
     }
     fread(buffer, BUFF_SIZE, 1, fp);
@@ -313,15 +330,15 @@ void parse_json(void)
     n_done = json_object_array_length(done);
 
     for (int i=0; i<n_backlog; i++) {
-        w_list_backlog[i] = add_card(json_object_array_get_idx(backlog, i), i, 1);
+        w_arr_backlog[i] = add_card(json_object_array_get_idx(backlog, i), i, 1);
     }
 
     for (int i=0; i<n_progress; i++) {
-        w_list_progress[i] = add_card(json_object_array_get_idx(progress, i), i, 2);
+        w_arr_progress[i] = add_card(json_object_array_get_idx(progress, i), i, 2);
     }
 
     for (int i=0; i<n_done; i++) {
-        w_list_done[i] = add_card(json_object_array_get_idx(done, i), i, 3);
+        w_arr_done[i] = add_card(json_object_array_get_idx(done, i), i, 3);
     }
     return;
 }
@@ -348,19 +365,19 @@ void move_cursor(char input)
             switch (cursor_pos.col) {
                 case 0:
                     if (cursor_pos.row < n_backlog - 1) {
-                        highlight_new_card(w_list_backlog[cursor_pos.row + 1]);
+                        highlight_new_card(w_arr_backlog[cursor_pos.row + 1]);
                         cursor_pos.row += 1;
                     }
                     break;
                 case 1:
                     if (cursor_pos.row < n_progress - 1) {
-                        highlight_new_card(w_list_progress[cursor_pos.row + 1]);
+                        highlight_new_card(w_arr_progress[cursor_pos.row + 1]);
                         cursor_pos.row += 1;
                     }
                     break;
                 case 2:
                     if (cursor_pos.row < n_done - 1) {
-                        highlight_new_card(w_list_done[cursor_pos.row + 1]);
+                        highlight_new_card(w_arr_done[cursor_pos.row + 1]);
                         cursor_pos.row += 1;
                     }
                     break;
@@ -370,19 +387,19 @@ void move_cursor(char input)
             switch (cursor_pos.col) {
                 case 0:
                     if (cursor_pos.row > 0) {
-                        highlight_new_card(w_list_backlog[cursor_pos.row - 1]);
+                        highlight_new_card(w_arr_backlog[cursor_pos.row - 1]);
                         cursor_pos.row -= 1;
                     }
                     break;
                 case 1:
                     if (cursor_pos.row > 0) {
-                        highlight_new_card(w_list_progress[cursor_pos.row - 1]);
+                        highlight_new_card(w_arr_progress[cursor_pos.row - 1]);
                         cursor_pos.row -= 1;
                     }
                     break;
                 case 2:
                     if (cursor_pos.row > 0) {
-                        highlight_new_card(w_list_done[cursor_pos.row - 1]);
+                        highlight_new_card(w_arr_done[cursor_pos.row - 1]);
                         cursor_pos.row -= 1;
                     }
                     break;
@@ -392,22 +409,22 @@ void move_cursor(char input)
             switch (cursor_pos.col) {
                 case 1:
                     if (cursor_pos.row < n_backlog) {
-                        highlight_new_card(w_list_backlog[cursor_pos.row]);
+                        highlight_new_card(w_arr_backlog[cursor_pos.row]);
                         cursor_pos.col -= 1;
                     }
                     else {
-                        highlight_new_card(w_list_backlog[n_backlog - 1]);
+                        highlight_new_card(w_arr_backlog[n_backlog - 1]);
                         cursor_pos.col -= 1;
                         cursor_pos.row = n_backlog - 1;
                     }
                     break;
                 case 2:
                     if (cursor_pos.row < n_progress) {
-                        highlight_new_card(w_list_progress[cursor_pos.row]);
+                        highlight_new_card(w_arr_progress[cursor_pos.row]);
                         cursor_pos.col -= 1;
                     }
                     else {
-                        highlight_new_card(w_list_progress[n_progress - 1]);
+                        highlight_new_card(w_arr_progress[n_progress - 1]);
                         cursor_pos.col -= 1;
                         cursor_pos.row = n_progress - 1;
                     }
@@ -418,22 +435,22 @@ void move_cursor(char input)
             switch (cursor_pos.col) {
                 case 0:
                     if (cursor_pos.row < n_progress) {
-                        highlight_new_card(w_list_progress[cursor_pos.row]);
+                        highlight_new_card(w_arr_progress[cursor_pos.row]);
                         cursor_pos.col += 1;
                     }
                     else {
-                        highlight_new_card(w_list_progress[n_progress - 1]);
+                        highlight_new_card(w_arr_progress[n_progress - 1]);
                         cursor_pos.col += 1;
                         cursor_pos.row = n_progress - 1;
                     }
                     break;
                 case 1:
                     if (cursor_pos.row < n_done) {
-                        highlight_new_card(w_list_done[cursor_pos.row]);
+                        highlight_new_card(w_arr_done[cursor_pos.row]);
                         cursor_pos.col += 1;
                     }
                     else {
-                        highlight_new_card(w_list_done[n_done - 1]);
+                        highlight_new_card(w_arr_done[n_done - 1]);
                         cursor_pos.col += 1;
                         cursor_pos.row = n_done - 1;
                     }
@@ -448,13 +465,13 @@ void highlight_current_card(void)
     WINDOW *current_card;
     switch (cursor_pos.col) {
         case 0:
-            current_card = w_list_backlog[cursor_pos.row];
+            current_card = w_arr_backlog[cursor_pos.row];
             break;
         case 1:
-            current_card = w_list_progress[cursor_pos.row];
+            current_card = w_arr_progress[cursor_pos.row];
             break;
         case 2:
-            current_card = w_list_done[cursor_pos.row];
+            current_card = w_arr_done[cursor_pos.row];
             break;
     }
     wborder(current_card, '|', '|', '-', '-', '+', '+', '+', '+');
@@ -467,19 +484,99 @@ void highlight_new_card(WINDOW *new_card)
     WINDOW *old_card;
     switch (cursor_pos.col) {
         case 0:
-            old_card = w_list_backlog[cursor_pos.row];
+            old_card = w_arr_backlog[cursor_pos.row];
             break;
         case 1:
-            old_card = w_list_progress[cursor_pos.row];
+            old_card = w_arr_progress[cursor_pos.row];
             break;
         case 2:
-            old_card = w_list_done[cursor_pos.row];
+            old_card = w_arr_done[cursor_pos.row];
             break;
     }
     box(old_card, 0, 0);
     wborder(new_card, '|', '|', '-', '-', '+', '+', '+', '+');
     wrefresh(old_card);
     wrefresh(new_card);
+    return;
+}
+
+void delete_task(void)
+{
+    struct json_object *parsed_json;
+    struct json_object *backlog;
+    struct json_object *progress;
+    struct json_object *done;
+
+    parsed_json = json_tokener_parse(buffer);
+    switch (cursor_pos.col) {
+        case 0:
+            json_object_object_get_ex(parsed_json, "backlog", &backlog);
+            json_object_array_del_idx(backlog, cursor_pos.row, 1);
+            memset(w_arr_backlog, 0, sizeof w_arr_backlog);
+            if (cursor_pos.row == n_backlog - 1)
+                cursor_pos.row -= 1;
+            if (n_backlog == 1) {
+                if (n_progress > 0) {
+                    cursor_pos.col = 1;
+                }
+                else if (n_done > 0) {
+                    cursor_pos.col = 2;
+                }
+                else {
+                    cursor_pos.col = 0;
+                }
+                cursor_pos.row = 0;
+            }
+            break;
+        case 1:
+            json_object_object_get_ex(parsed_json, "progress", &progress);
+            json_object_array_del_idx(progress, cursor_pos.row, 1);
+            memset(w_arr_progress, 0, sizeof w_arr_progress);
+            if (cursor_pos.row == n_progress - 1)
+                cursor_pos.row -= 1;
+            if (n_progress == 1) {
+                if (n_backlog > 0) {
+                    cursor_pos.col = 0;
+                }
+                else if (n_done > 0) {
+                    cursor_pos.col = 2;
+                }
+                else {
+                    cursor_pos.col = 0;
+                }
+                cursor_pos.row = 0;
+            }
+            break;
+        case 2:
+            json_object_object_get_ex(parsed_json, "done", &done);
+            json_object_array_del_idx(done, cursor_pos.row, 1);
+            memset(w_arr_done, 0, sizeof w_arr_done);
+            if (cursor_pos.row == n_done - 1)
+                cursor_pos.row -= 1;
+            if (n_done == 1) {
+                if (n_backlog > 0) {
+                    cursor_pos.col = 0;
+                }
+                else if (n_progress > 0) {
+                    cursor_pos.col = 1;
+                }
+                else {
+                    cursor_pos.col = 0;
+                }
+                cursor_pos.row = 0;
+            }
+            break;
+    }
+    strcpy(buffer, json_object_to_json_string_ext(parsed_json, JSON_C_TO_STRING_PRETTY));
+    write_json_file();
+    set_up();
+    return;
+}
+
+void move_task(char input)
+{
+    switch (input) {
+    }
     return;
 }
 
