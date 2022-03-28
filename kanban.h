@@ -3,14 +3,9 @@
 
 #include <ncurses.h>
 
-// define color pairs to make reusing them easier
-#define COLOR_BACKLOG  1
-#define COLOR_PROGRESS 2
-#define COLOR_DONE     3
-
-#define BUFF_SIZE 4096              // size of the buffer for the JSON data
-#define FILENAME ".kanban.json"     // name of the JSON file
-#define W_ARR_LENGTH 20             // size of the window arrays
+#define BUFF_SIZE 8192          // size of the buffer for the JSON data
+#define FILENAME "todo.json"    // name of the JSON file
+#define W_ARR_LENGTH 20         // size of the window arrays
 
 /**
   * Set up the initial terminal screen
@@ -96,7 +91,7 @@ void move_task(char input);
 
 /**
   * not implemented yet!
-  * redraw the screen when the terminal window gets resize_handler
+  * redraw the screen when the terminal window gets resized
 */
 void resize_handler(int sig);
 

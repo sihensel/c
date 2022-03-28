@@ -92,7 +92,8 @@ void set_up(void)
     refresh();
 
     if (x < 100) {
-        mvaddstr(y-1, 1, "Please use a terminal that is at least 100 characters wide");
+        mvaddstr(y-1, 1, "Please use a terminal that is at least "
+                "100 characters wide");
         refresh();
         return;
     }
@@ -115,45 +116,14 @@ void set_up(void)
     box(w_done_top, 0, 0);
     box(w_done_main, 0, 0);
 
-    // colorize header text, if supported by the terminal
-    if (has_colors()) {
-        if (start_color() == OK) {;
-            use_default_colors();
-            init_pair(COLOR_BACKLOG, COLOR_BLUE, COLOR_BLACK);
-            init_pair(COLOR_PROGRESS, COLOR_YELLOW, COLOR_BLACK);
-            init_pair(COLOR_DONE, COLOR_GREEN, COLOR_BLACK);
+    mvwprintw(w_backlog_top, getmaxy(w_backlog_top)/2,
+            getmaxx(w_backlog_top)/2 - 3, "Backlog");
 
-            wattron(w_backlog_top, COLOR_PAIR(COLOR_BACKLOG));
-            mvwprintw(w_backlog_top, getmaxy(w_backlog_top)/2,
-                    getmaxx(w_backlog_top)/2 - 3, "Backlog");
-            wattroff(w_backlog_top, COLOR_PAIR(COLOR_BACKLOG));
+    mvwprintw(w_progress_top, getmaxy(w_progress_top)/2,
+            getmaxx(w_backlog_top)/2 - 5, "In Progress");
 
-            wattron(w_progress_top, COLOR_PAIR(COLOR_PROGRESS));
-            mvwprintw(w_progress_top, getmaxy(w_progress_top)/2,
-                    getmaxx(w_backlog_top)/2 - 5, "In Progress");
-            wattroff(w_progress_top, COLOR_PAIR(COLOR_PROGRESS));
-
-            wattron(w_done_top, COLOR_PAIR(COLOR_DONE));
-            mvwprintw(w_done_top, getmaxy(w_progress_top)/2,
-                    getmaxx(w_backlog_top)/2 - 2, "Done");
-            wattroff(w_done_top, COLOR_PAIR(COLOR_DONE));
-        }
-        else {
-            mvaddstr(y-1, 1, "Failed to start colors");
-            refresh();
-        }
-    }
-    else {
-        // print text without colors
-        mvwprintw(w_backlog_top, getmaxy(w_backlog_top)/2,
-                getmaxx(w_backlog_top)/2 - 3, "Backlog");
-
-        mvwprintw(w_progress_top, getmaxy(w_progress_top)/2,
-                getmaxx(w_backlog_top)/2 - 5, "In Progress");
-
-        mvwprintw(w_done_top, getmaxy(w_progress_top)/2,
-                getmaxx(w_backlog_top)/2 - 2, "Done");
-    }
+    mvwprintw(w_done_top, getmaxy(w_progress_top)/2,
+            getmaxx(w_backlog_top)/2 - 2, "Done");
 
     // refresh all windows
     wrefresh(w_backlog_top);
@@ -191,8 +161,8 @@ void tear_down(void)
 }
 
 void add_task(void) {
-    // FIXME allow cancelling of creating a new task with CTRL-C or similar
     echo();                 // display user input
+    curs_set(1);            // show the cursor
     char task_name[51];     // allow 50 chars + '\n'
     char task_due[11];      // a date string has 11 chars, including '\n'
 
@@ -201,8 +171,13 @@ void add_task(void) {
 
     mvwaddstr(w_input, 1, 1, "Please enter a task name: ");
     mvwgetnstr(w_input, 2, 1, task_name, 50);
+    // when the user presses ESC (char 27), cancel the task creation
+    if (strchr(task_name, 27))
+        goto cancel_task_add;
     mvwaddstr(w_input, 3, 1, "Please enter a due date: ");
     mvwgetnstr(w_input, 4, 1, task_due, 10);
+    if (strchr(task_due, 27))
+        goto cancel_task_add;
 
     // add new tasks to the backlog
     struct json_object *parsed_json;
@@ -223,7 +198,7 @@ void add_task(void) {
     json_object_object_add(new_task, "due", json_object_new_string(task_due));
 
     json_object_array_add(backlog, new_task);
-    // initialize the json object with empty arrays, if the file does not exist
+    // initialize empty arrays, if the file does not exist
     if (buffer[0] == '\0') {
         json_object_object_add(parsed_json, "backlog", backlog);
         json_object_object_add(parsed_json, "progress", json_object_new_array());
@@ -233,7 +208,7 @@ void add_task(void) {
     strcpy(buffer, json_object_to_json_string_ext(parsed_json, JSON_C_TO_STRING_PRETTY));
     write_json_file();
 
-    noecho();
+    cancel_task_add:
     set_up();
     return;
 }
@@ -249,13 +224,13 @@ WINDOW *add_card(struct json_object *task, int index, int column)
     // decide in which column the card will be added
     switch (column) {
         case 0:
-            card = newwin(5, x/3-2, 6+5*index, 1);
+            card = newwin(4, x/3-2, 6+4*index, 1);
             break;
         case 1:
-            card = newwin(5, x/3-2, 6+5*index, x/3+1);
+            card = newwin(4, x/3-2, 6+4*index, x/3+1);
             break;
         case 2:
-            card = newwin(5, x/3-2, 6+5*index, x/3*2+1);
+            card = newwin(4, x/3-2, 6+4*index, x/3*2+1);
             break;
     }
     box(card, 0, 0);
