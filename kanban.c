@@ -52,6 +52,9 @@ int main(void)
             case 'd':
                 delete_task();
                 break;
+            case 'c':
+                cleanup_done_tasks();
+                break;
             case 'm':
                 move_task(input);
                 break;
@@ -613,6 +616,23 @@ void move_task(char input)
     memset(w_arr_backlog, 0, sizeof w_arr_backlog);
     memset(w_arr_progress, 0, sizeof w_arr_progress);
     memset(w_arr_done, 0, sizeof w_arr_done);
+    set_up();
+    return;
+}
+
+void cleanup_done_tasks(void)
+{
+    struct json_object *parsed_json;
+    parsed_json = json_tokener_parse(buffer);
+
+    // for simplicity, just delete the whole "done" object
+    // and replace it with a new empty array
+    json_object_object_del(parsed_json, "done");
+    json_object_object_add(parsed_json, "done", json_object_new_array());
+
+    // update the buffer and write to file
+    strcpy(buffer, json_object_to_json_string_ext(parsed_json, JSON_C_TO_STRING_PRETTY));
+    write_json_file();
     set_up();
     return;
 }

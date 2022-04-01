@@ -95,6 +95,11 @@ void move_task(char input);
 */
 void resize_handler(int sig);
 
+/**
+  * cleanup the "done" column by deleting all tasks
+*/
+void cleanup_done_tasks(void);
+
 extern int errno;
 
 #endif
