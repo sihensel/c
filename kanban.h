@@ -48,24 +48,16 @@ void write_json_file(void);
 void parse_json(void);
 
 /**
-  * move the cursor on position down and select that card
+  * Move the cursor vertically
+  * @param direction direction in which to move (-1: up, 1: down)
 */
-void move_cursor_down(void);
+void move_cursor_vertical(int direction);
 
 /**
-  * move the cursor on position up and select that card
+  * Move the cursor horizontally
+  * @param direction direction in which to move (-1: left, 1: right)
 */
-void move_cursor_up(void);
-
-/**
-  * move the cursor one column to the left
-*/
-void move_cursor_left(void);
-
-/**
-  * move the cursor one column to the right
-*/
-void move_cursor_right(void);
+void move_cursor_horizontal(int direction);
 
 /**
   * highlight a new card after moving the cursor

@@ -38,9 +38,11 @@ int main(void)
     signal(SIGWINCH, resize_handler);
     set_up();
 
-    char input;
+    char input = 0;
+
     for (;;) {
         input = getch();    // wait for user input
+
         // convert uppercase chars to lowercase
         if (input >= 65 && input <= 90)
             input += 32;
@@ -62,25 +64,25 @@ int main(void)
                 move_task(input);
                 break;
             case 'j':
-                move_cursor_down();
+                move_cursor_vertical(1);
                 break;
             case 'k':
-                move_cursor_up();
-                break;
-            case 'h':
-                move_cursor_left();
+                move_cursor_vertical(-1);
                 break;
             case 'l':
-                move_cursor_right();
+                move_cursor_horizontal(1);
+                break;
+            case 'h':
+                move_cursor_horizontal(-1);
                 break;
             case 'q':
                 tear_down();
-                goto exit;      // exit the program when pressing q
+                goto quit;      // quit the program when pressing q
             default:
                 continue;
         }
     }
-    exit:
+    quit:
     return 0;
 }
 
@@ -163,22 +165,28 @@ void tear_down(void)
     return;
 }
 
-void add_task(void) {
+void add_task(void)
+{
     echo();                 // display user input
     curs_set(1);            // show the cursor
+
     char task_name[51];     // allow 50 chars + '\n'
     char task_due[11];      // a date string has 11 chars, including '\n'
 
     WINDOW *w_input = newwin(y/2, x/2, y/4, x/4);
     box(w_input, 0, 0);
 
-    mvwaddstr(w_input, 1, 1, "Please enter a task name: ");
-    mvwgetnstr(w_input, 2, 1, task_name, 50);
+    mvwaddstr(w_input, 1, 1, "Create a task (Press ESC + Enter to cancel)");
+    mvwaddstr(w_input, 3, 1, "Please enter a task name: ");
+    mvwgetnstr(w_input, 4, 1, task_name, 50);
+
     // when the user presses ESC (char 27), cancel the task creation
     if (strchr(task_name, 27))
         goto cancel_task_add;
-    mvwaddstr(w_input, 3, 1, "Please enter a due date: ");
-    mvwgetnstr(w_input, 4, 1, task_due, 10);
+
+    mvwaddstr(w_input, 5, 1, "Please enter a due date: ");
+    mvwgetnstr(w_input, 6, 1, task_due, 10);
+
     if (strchr(task_due, 27))
         goto cancel_task_add;
 
@@ -196,17 +204,20 @@ void add_task(void) {
         parsed_json = json_tokener_parse(buffer);
         json_object_object_get_ex(parsed_json, "backlog", &backlog);
     }
+
     struct json_object *new_task = json_object_new_object();
     json_object_object_add(new_task, "name", json_object_new_string(task_name));
     json_object_object_add(new_task, "due", json_object_new_string(task_due));
 
     json_object_array_add(backlog, new_task);
+
     // initialize empty arrays, if the file does not exist
     if (buffer[0] == '\0') {
         json_object_object_add(parsed_json, "backlog", backlog);
         json_object_object_add(parsed_json, "progress", json_object_new_array());
         json_object_object_add(parsed_json, "done", json_object_new_array());
     }
+
     // update the buffer
     strcpy(buffer, json_object_to_json_string_ext(parsed_json, JSON_C_TO_STRING_PRETTY));
     write_json_file();
@@ -236,11 +247,13 @@ WINDOW *add_card(struct json_object *task, int index, int column)
             card = newwin(4, x/3-2, 6+4*index, x/3*2+1);
             break;
     }
+
     box(card, 0, 0);
     mvwaddstr(card, 1, 1, json_object_get_string(name));
     mvwaddstr(card, 2, 1, json_object_get_string(due));
     wrefresh(card);
     refresh();
+
     return card;
 }
 
@@ -257,6 +270,7 @@ void read_json_file(void)
 {
     FILE *fp;
     fp = fopen(FILENAME, "r");
+
     if (fp == NULL) {
         if (errno != 2) {
             // suppress file not found error, as the file will be created
@@ -264,6 +278,7 @@ void read_json_file(void)
         }
         return;
     }
+
     fread(buffer, BUFF_SIZE, 1, fp);
     fclose(fp);
     return;
@@ -303,138 +318,160 @@ void write_json_file(void)
 {
     FILE *fp;
     fp = fopen(FILENAME, "w");
+
     if (fp == NULL) {
         mvprintw(y-1, 1, "Error opening file: %s\n", strerror(errno));
         return;
     }
+
     fputs(buffer, fp);
     fclose(fp);
     return;
 }
 
-void move_cursor_down(void)
+void move_cursor_vertical(int direction)
 {
-    switch (cursor_pos.col) {
-        case 0:
+    // -1: up, 1: down
+    int new_row = cursor_pos.row;
+
+    switch (direction) {
+        case -1:
             // prevent the cursor from moving out of bounds
-            if (cursor_pos.row < n_backlog - 1) {
-                highlight_new_card(w_arr_backlog[cursor_pos.row + 1]);
-                cursor_pos.row += 1;
+            if (cursor_pos.row > 0) {
+                new_row += direction;
             }
             break;
         case 1:
-            if (cursor_pos.row < n_progress - 1) {
-                highlight_new_card(w_arr_progress[cursor_pos.row + 1]);
-                cursor_pos.row += 1;
-            }
-            break;
-        case 2:
-            if (cursor_pos.row < n_done - 1) {
-                highlight_new_card(w_arr_done[cursor_pos.row + 1]);
-                cursor_pos.row += 1;
+            switch (cursor_pos.col) {
+                case 0:
+                    if (cursor_pos.row < n_backlog - 1) {
+                        new_row += direction;
+                    }
+                    break;
+                case 1:
+                    if (cursor_pos.row < n_progress - 1) {
+                        new_row += direction;
+                    }
+                    break;
+                case 2:
+                    if (cursor_pos.row < n_done - 1) {
+                        new_row += direction;
+                    }
+                    break;
             }
             break;
     }
+
+    switch (cursor_pos.col) {
+        case 0:
+            highlight_new_card(w_arr_backlog[new_row]);
+            break;
+
+        case 1:
+            highlight_new_card(w_arr_progress[new_row]);
+            break;
+
+        case 2:
+            highlight_new_card(w_arr_done[new_row]);
+            break;
+    }
+    cursor_pos.row = new_row;
     return;
 }
 
-void move_cursor_up(void)
+void move_cursor_horizontal(int direction)
 {
-    switch (cursor_pos.col) {
-        case 0:
-            // prevent the cursor from moving out of bounds
-            if (cursor_pos.row > 0) {
-                highlight_new_card(w_arr_backlog[cursor_pos.row - 1]);
-                cursor_pos.row -= 1;
-            }
-            break;
-        case 1:
-            if (cursor_pos.row > 0) {
-                highlight_new_card(w_arr_progress[cursor_pos.row - 1]);
-                cursor_pos.row -= 1;
-            }
-            break;
-        case 2:
-            if (cursor_pos.row > 0) {
-                highlight_new_card(w_arr_done[cursor_pos.row - 1]);
-                cursor_pos.row -= 1;
-            }
-            break;
-    }
-    return;
-}
+    // -1: left, 1: right
+    int new_row = cursor_pos.row;
 
-void move_cursor_left(void)
-{
     switch (cursor_pos.col) {
         case 0:
-            // prevent the cursor from moving out of bounds
-            break;
-        case 1:
-            // move the cursor right if a card is in the same row position
-            if (cursor_pos.row < n_backlog) {
-                highlight_new_card(w_arr_backlog[cursor_pos.row]);
-                cursor_pos.col -= 1;
-            }
-            // else select the last card of the next column
-            else {
-                highlight_new_card(w_arr_backlog[n_backlog - 1]);
-                cursor_pos.col -= 1;
-                cursor_pos.row = n_backlog - 1;
-            }
-            break;
-        case 2:
-            if (cursor_pos.row < n_progress) {
-                highlight_new_card(w_arr_progress[cursor_pos.row]);
-                cursor_pos.col -= 1;
-            }
-            else {
-                highlight_new_card(w_arr_progress[n_progress - 1]);
-                cursor_pos.col -= 1;
-                cursor_pos.row = n_progress - 1;
-            }
-            break;
-    }
-    return;
-}
+            switch (direction) {
+                case -1:
+                    // prevent the cursor from moving out of bounds
+                    return;
 
-void move_cursor_right(void)
-{
-    switch (cursor_pos.col) {
-        case 0:
-            // move the cursor right if a card is in the same row position
-            if (cursor_pos.row < n_progress) {
-                highlight_new_card(w_arr_progress[cursor_pos.row]);
-                cursor_pos.col += 1;
-            }
-            // else select the last card of the next column
-            else {
-                highlight_new_card(w_arr_progress[n_progress - 1]);
-                cursor_pos.col += 1;
-                cursor_pos.row = n_progress - 1;
+                case 1:
+                    if (n_progress == 0) {
+                        if (n_done > 0) { direction = 2; }
+                        else { return; }
+                    }
+                    // move the cursor horizontally if the card in the
+                    // next column is in the same row
+                    if (direction == 1) {
+                        if (cursor_pos.row >= n_progress) {
+                            new_row = (n_progress > 0) ? n_progress - 1 : 0;
+                        }
+                        highlight_new_card(w_arr_progress[new_row]);
+                    }
+                    else if (direction == 2) {
+                        if (cursor_pos.row >= n_done) {
+                            new_row = (n_done > 0) ? n_done - 1 : 0;
+                        }
+                        highlight_new_card(w_arr_done[new_row]);
+                    }
+                    cursor_pos.col += direction;
+                    break;
             }
             break;
+
         case 1:
-            if (cursor_pos.row < n_done) {
-                highlight_new_card(w_arr_done[cursor_pos.row]);
-                cursor_pos.col += 1;
+            switch (direction) {
+                case -1:
+                    if (n_backlog == 0) { return; }
+                    if (cursor_pos.row >= n_backlog) {
+                        new_row = (n_backlog > 0) ? n_backlog - 1 : 0;
+                    }
+                    highlight_new_card(w_arr_backlog[new_row]);
+                    break;
+
+                case 1:
+                    if (n_done == 0) { return; }
+                    if (cursor_pos.row >= n_done) {
+                        new_row = (n_done > 0) ? n_done - 1 : 0;
+                    }
+                    highlight_new_card(w_arr_done[new_row]);
+                    break;
             }
-            else {
-                highlight_new_card(w_arr_done[n_done - 1]);
-                cursor_pos.col += 1;
-                cursor_pos.row = n_done - 1;
-            }
+            cursor_pos.col += direction;
             break;
+
         case 2:
-            // prevent the cursor from moving out of bounds
+            switch (direction) {
+                case -1:
+                    if (n_progress == 0) {
+                        if (n_backlog > 0) { direction = -2; }
+                        else { return; }
+                    }
+                    if (direction == -1) {
+                        if (cursor_pos.row >= n_progress) {
+                            new_row = (n_progress > 0) ? n_progress - 1 : 0;
+                        }
+                        highlight_new_card(w_arr_progress[new_row]);
+                    }
+                    else if (direction == -2) {
+                        if (cursor_pos.row >= n_backlog) {
+                            new_row = (n_backlog > 0) ? n_backlog - 1 : 0;
+                        }
+                        highlight_new_card(w_arr_backlog[new_row]);
+                    }
+                    cursor_pos.col += direction;
+                    break;
+
+                case 1:
+                    // prevent the cursor from moving out of bounds
+                    return;
+            }
             break;
     }
+    cursor_pos.row = new_row;
     return;
 }
 
 void highlight_current_card(void)
 {
     WINDOW *current_card;
+
     // get the currently selected card from the current cursor position
     switch (cursor_pos.col) {
         case 0:
@@ -447,6 +484,7 @@ void highlight_current_card(void)
             current_card = w_arr_done[cursor_pos.row];
             break;
     }
+
     // change the border to make the selection distinct
     wborder(current_card, '|', '|', '-', '-', '+', '+', '+', '+');
     wrefresh(current_card);
@@ -456,6 +494,7 @@ void highlight_current_card(void)
 void highlight_new_card(WINDOW *new_card)
 {
     WINDOW *old_card;
+
     // get the currently selected card from the current cursor position
     switch (cursor_pos.col) {
         case 0:
@@ -468,6 +507,7 @@ void highlight_new_card(WINDOW *new_card)
             old_card = w_arr_done[cursor_pos.row];
             break;
     }
+
     // change the border to make the selection distinct
     box(old_card, 0, 0);
     wborder(new_card, '|', '|', '-', '-', '+', '+', '+', '+');
@@ -484,13 +524,16 @@ void delete_task(void)
     struct json_object *done;
 
     parsed_json = json_tokener_parse(buffer);
+
     // get the currently selected card
     switch (cursor_pos.col) {
         case 0:
             json_object_object_get_ex(parsed_json, "backlog", &backlog);
             json_object_array_del_idx(backlog, cursor_pos.row, 1);
+
             // force-reset the corresponding array containing all cards
             memset(w_arr_backlog, 0, sizeof w_arr_backlog);
+
             // move the cursor to prevent it from being out of bounds
             if (cursor_pos.row == n_backlog - 1)
                 cursor_pos.row -= 1;
@@ -507,6 +550,7 @@ void delete_task(void)
                 cursor_pos.row = 0;
             }
             break;
+
         case 1:
             json_object_object_get_ex(parsed_json, "progress", &progress);
             json_object_array_del_idx(progress, cursor_pos.row, 1);
@@ -526,6 +570,7 @@ void delete_task(void)
                 cursor_pos.row = 0;
             }
             break;
+
         case 2:
             json_object_object_get_ex(parsed_json, "done", &done);
             json_object_array_del_idx(done, cursor_pos.row, 1);
@@ -546,6 +591,7 @@ void delete_task(void)
             }
             break;
     }
+
     // update the buffer, save the file and redraw the screen
     strcpy(buffer, json_object_to_json_string_ext(parsed_json, JSON_C_TO_STRING_PRETTY));
     write_json_file();
@@ -582,14 +628,15 @@ void move_task(char input)
                     json_object_array_del_idx(progress, cursor_pos.row, 1);
                     break;
                 case 2:
-                    break;
+                    return;
             }
             break;
+
         // move the task left
         case 'n':
             switch (cursor_pos.col) {
                 case 0:
-                    break;
+                    return;
                 case 1:
                     task = json_object_array_get_idx(progress, cursor_pos.row);
                     json_object_array_add(backlog, json_object_get(task));
@@ -603,6 +650,7 @@ void move_task(char input)
             }
             break;
     }
+
     // update the buffer and save the file
     strcpy(buffer, json_object_to_json_string_ext(parsed_json, JSON_C_TO_STRING_PRETTY));
     write_json_file();
