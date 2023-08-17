@@ -4,12 +4,18 @@
    gcc -Wall -Wextra -lncurses -ljson-c -std=c99 -o kanban kanban.c
 */
 
+#define _XOPEN_SOURCE
+
+#include <errno.h>
 #include <ncurses.h>
+#include <stdlib.h>
 #include <string.h>
 #include <signal.h>
 #include <stdio.h>
-#include <errno.h>
+#include <time.h>
+
 #include <json-c/json.h>
+#include <json-c/json_object.h>
 
 #include "kanban.h"
 
@@ -44,10 +50,14 @@ int main(void)
         input = getch();    // wait for user input
 
         // convert uppercase chars to lowercase
-        if (input >= 65 && input <= 90)
+        if (input >= 65 && input <= 90) {
             input += 32;
+        }
 
         switch (input) {
+            case 'x':
+                show_help();
+                break;
             case 'a':
                 add_task();
                 break;
@@ -56,6 +66,9 @@ int main(void)
                 break;
             case 'c':
                 cleanup_done_tasks();
+                break;
+            case 's':
+                sort_tasks();
                 break;
             case 'm':
                 move_task(input);
@@ -130,6 +143,10 @@ void set_up(void)
     mvwprintw(w_done_top, getmaxy(w_progress_top)/2,
             getmaxx(w_backlog_top)/2 - 2, "Done");
 
+    // FIXME template keys into the header file and read keycodes from there
+    // e.g. KEY_A = 'a' or KEY_A = 65
+    mvaddstr(y-1, 1, "Press 'x' to open the help dialog");
+
     // refresh all windows
     wrefresh(w_backlog_top);
     wrefresh(w_backlog_main);
@@ -140,11 +157,14 @@ void set_up(void)
     refresh();
 
     // only read the file once, exclusively operate on the buffer afterwards
-    if (buffer[0] == '\0')
+    if (buffer[0] == '\0') {
         read_json_file();
+    }
+
     // if the buffer already contains data, we just need to parse it
-    if (buffer[0] != '\0')
+    if (buffer[0] != '\0') {
         parse_json();
+    }
 
     // highlight the card at (0,0) during the first run
     static int first_run = 1;
@@ -181,14 +201,16 @@ void add_task(void)
     mvwgetnstr(w_input, 4, 1, task_name, 50);
 
     // when the user presses ESC (char 27), cancel the task creation
-    if (strchr(task_name, 27))
+    if (strchr(task_name, 27)) {
         goto cancel_task_add;
+    }
 
     mvwaddstr(w_input, 5, 1, "Please enter a due date: ");
     mvwgetnstr(w_input, 6, 1, task_due, 10);
 
-    if (strchr(task_due, 27))
+    if (strchr(task_due, 27)) {
         goto cancel_task_add;
+    }
 
     // add new tasks to the backlog
     struct json_object *parsed_json;
@@ -272,8 +294,8 @@ void read_json_file(void)
     fp = fopen(FILENAME, "r");
 
     if (fp == NULL) {
+        // suppress file not found error, as the file will be created
         if (errno != 2) {
-            // suppress file not found error, as the file will be created
             mvprintw(y-1, 1, "Error opening file: %d %s\n", errno, strerror(errno));
         }
         return;
@@ -535,8 +557,9 @@ void delete_task(void)
             memset(w_arr_backlog, 0, sizeof w_arr_backlog);
 
             // move the cursor to prevent it from being out of bounds
-            if (cursor_pos.row == n_backlog - 1)
+            if (cursor_pos.row == n_backlog - 1) {
                 cursor_pos.row -= 1;
+            }
             if (n_backlog == 1) {
                 if (n_progress > 0) {
                     cursor_pos.col = 1;
@@ -555,8 +578,9 @@ void delete_task(void)
             json_object_object_get_ex(parsed_json, "progress", &progress);
             json_object_array_del_idx(progress, cursor_pos.row, 1);
             memset(w_arr_progress, 0, sizeof w_arr_progress);
-            if (cursor_pos.row == n_progress - 1)
+            if (cursor_pos.row == n_progress - 1) {
                 cursor_pos.row -= 1;
+            }
             if (n_progress == 1) {
                 if (n_backlog > 0) {
                     cursor_pos.col = 0;
@@ -575,8 +599,9 @@ void delete_task(void)
             json_object_object_get_ex(parsed_json, "done", &done);
             json_object_array_del_idx(done, cursor_pos.row, 1);
             memset(w_arr_done, 0, sizeof w_arr_done);
-            if (cursor_pos.row == n_done - 1)
+            if (cursor_pos.row == n_done - 1) {
                 cursor_pos.row -= 1;
+            }
             if (n_done == 1) {
                 if (n_backlog > 0) {
                     cursor_pos.col = 0;
@@ -657,8 +682,9 @@ void move_task(char input)
 
     // move the cursor one position up
     cursor_pos.row -= 1;
-    if (cursor_pos.row < 0)
+    if (cursor_pos.row < 0) {
         cursor_pos.row = 0;
+    }
 
     // reset all card window arrays
     memset(w_arr_backlog, 0, sizeof w_arr_backlog);
@@ -685,3 +711,127 @@ void cleanup_done_tasks(void)
     return;
 }
 
+int sort_array(struct json_object *arr, int i){
+    struct json_object *task1;
+    struct json_object *task2;
+    struct json_object *due1;
+    struct json_object *due2;
+
+    struct tm t;
+    time_t epoch1;
+    time_t epoch2;
+
+    int changed = 0;
+
+    // increment the ref counter, as json_object_array_put_idx() decrements it
+    task1 = json_object_get(json_object_array_get_idx(arr, i));
+    task2 = json_object_get(json_object_array_get_idx(arr, i+1));
+
+    json_object_object_get_ex(task1, "due", &due1);
+    json_object_object_get_ex(task2, "due", &due2);
+
+
+    // convert time strings to epoch time
+    if (strptime(json_object_get_string(due1), "%d.%m.%Y", &t) != NULL) {
+        epoch1 = mktime(&t);
+    }
+    else {
+        // FIXME display an error here
+    }
+
+    if (strptime(json_object_get_string(due2), "%d.%m.%Y", &t) != NULL) {
+        epoch2 = mktime(&t);
+    }
+    else {
+        // FIXME display an error here
+    }
+
+    if (epoch1 > epoch2) {
+        // shift positions of both tasks
+        json_object_array_put_idx(arr, i, task2);
+        json_object_array_put_idx(arr, i+1, task1);
+        changed = 1;
+    }
+    return changed;
+}
+
+void sort_tasks(void)
+{
+    struct json_object *parsed_json;
+    struct json_object *backlog;
+    struct json_object *progress;
+    struct json_object *done;
+
+    parsed_json = json_tokener_parse(buffer);
+
+    json_object_object_get_ex(parsed_json, "backlog", &backlog);
+    json_object_object_get_ex(parsed_json, "progress", &progress);
+    json_object_object_get_ex(parsed_json, "done", &done);
+
+    int changed = 1;
+
+    if (n_backlog >= 2) {
+        while (changed != 0) {
+            changed = 0;
+            for (int i=0; i<n_backlog-1; i++) {
+                if (sort_array(backlog, i) == 1) {
+                    changed = 1;
+                }
+            }
+        }
+    }
+    changed = 1;
+    if (n_progress >= 2) {
+        while (changed != 0) {
+            changed = 0;
+            for (int i=0; i<n_progress-1; i++) {
+                if (sort_array(progress, i) == 1) {
+                    changed = 1;
+                }
+            }
+        }
+    }
+    changed = 1;
+    if (n_done >= 2) {
+        while (changed != 0) {
+            changed = 0;
+            for (int i=0; i<n_done-1; i++) {
+                if (sort_array(done, i) == 1) {
+                    changed = 1;
+                }
+            }
+        }
+    }
+
+    strcpy(buffer, json_object_to_json_string_ext(parsed_json, JSON_C_TO_STRING_PRETTY));
+    write_json_file();
+    set_up();
+    return;
+}
+
+void show_help()
+{
+    int y_help;
+    WINDOW *w_help = newwin(y/2, x/2, y/4, x/4);
+    box(w_help, 0, 0);
+    y_help = getmaxy(w_help);
+
+    mvwaddstr(w_help, 1, 1, "Keyboard Shortcuts");
+    mvwaddstr(w_help, 3, 1, "a\tAdd task");
+    mvwaddstr(w_help, 4, 1, "d\tDelete task");
+    mvwaddstr(w_help, 5, 1, "c\tDelete all tasks marked as done");
+    mvwaddstr(w_help, 6, 1, "s\tSort all tasks ascending by date");
+    mvwaddstr(w_help, 7, 1, "m\tMove selected task right");
+    mvwaddstr(w_help, 8, 1, "n\tMove selected task left");
+    mvwaddstr(w_help, 9, 1, "j\tMove cursor down");
+    mvwaddstr(w_help, 10, 1, "k\tMove cursor up");
+    mvwaddstr(w_help, 11, 1, "h\tMove cursor left");
+    mvwaddstr(w_help, 12, 1, "l\tMove cursor right");
+    mvwaddstr(w_help, 13, 1, "q\tQuit");
+    mvwaddstr(w_help, y_help-2, 1, "Press any key to continue...");
+
+    // wait for user input and close the window
+    wgetch(w_help);
+    set_up();
+    return;
+}

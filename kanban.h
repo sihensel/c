@@ -7,6 +7,8 @@
 #define FILENAME "todo.json"    // name of the JSON file
 #define W_ARR_LENGTH 20         // size of the window arrays
 
+extern int errno;
+
 /**
   * Set up the initial terminal screen
   * Gets called each time the screen needs to be redrawn
@@ -92,6 +94,19 @@ void resize_handler(int sig);
 */
 void cleanup_done_tasks(void);
 
-extern int errno;
+/**
+  sort a json array ascending by date
+*/
+int sort_array(struct json_object *arr, int i);
+
+/**
+  sort all tasks in each column ascending by date via Bubblesort
+*/
+void sort_tasks(void);
+
+/**
+  show the help dialog
+*/
+void show_help(void);
 
 #endif
